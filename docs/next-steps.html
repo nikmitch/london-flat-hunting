@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Next Steps — London Flat Hunter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8f9fa; color: #212529; line-height: 1.6; }
+    .container { max-width: 860px; margin: 0 auto; padding: 48px 24px; }
+    .back { color: #4a9eff; text-decoration: none; font-size: 0.85rem; display: inline-block; margin-bottom: 24px; }
+    h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #6c757d; margin-bottom: 16px; }
+    .order-note { background: #fff; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 36px; font-size: 0.9rem; }
+    h2 { font-size: 1.1rem; font-weight: 700; margin: 36px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef; }
+    h3 { font-size: 0.95rem; font-weight: 600; margin: 20px 0 8px; }
+    p { margin-bottom: 10px; font-size: 0.92rem; }
+    ul, ol { margin: 8px 0 14px 22px; font-size: 0.92rem; }
+    li { margin-bottom: 5px; }
+    code { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.82em; }
+    pre { background: #1c1c1e; color: #f8f9fa; padding: 18px 20px; border-radius: 8px; overflow-x: auto; margin: 10px 0 18px; font-family: "SF Mono", Monaco, monospace; font-size: 0.82em; line-height: 1.8; }
+    pre .comment { color: #6c757d; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.88rem; }
+    th { background: #e9ecef; text-align: left; padding: 9px 13px; font-weight: 600; }
+    td { padding: 9px 13px; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .section { background: #fff; border: 1px solid #e9ecef; border-radius: 10px; padding: 22px 24px; margin: 14px 0; }
+    .callout { background: #fff; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 0.9rem; }
+    .callout.warn { border-color: #f59e0b; }
+    .step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #3b82f6; color: white; font-size: 0.78rem; font-weight: 700; margin-right: 8px; flex-shrink: 0; }
+    .step { display: flex; align-items: flex-start; gap: 0; margin-bottom: 10px; font-size: 0.92rem; }
+    .step-body { flex: 1; }
+    .effort { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.72em; font-weight: 700; background: #ede9fe; color: #5b21b6; margin-left: 8px; vertical-align: middle; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="index.html">← Docs home</a>
+  <h1>Next Steps</h1>
+  <p class="subtitle">Making the app shareable and collaborative</p>
+
+  <div class="order-note">
+    <strong>Recommended order:</strong>
+    Comments &amp; voting first (makes cloud worth it) → then cloud deploy (one-command). Both are independent of each other and can be done in any order, but deploying before adding comments means your girlfriend sees a read-only app with no way to interact.
+  </div>
+
+  <!-- ── TRACK 1: COMMENTS ── -->
+  <h2>1 — Multi-user comments &amp; voting <span class="effort">~3 hrs</span></h2>
+
+  <div class="section">
+    <p>No login, no passwords. Each person picks their name on first visit — stored in a browser cookie. The system tracks per-person votes and comments independently.</p>
+
+    <h3>New DB tables</h3>
+    <table>
+      <tr><th>Table</th><th>Columns</th><th>Notes</th></tr>
+      <tr>
+        <td><code>votes</code></td>
+        <td>listing_id, user_name, status (shortlisted/rejected/new), created_at</td>
+        <td>One row per person per listing. Replaces the current global <code>status</code> field on listings.</td>
+      </tr>
+      <tr>
+        <td><code>comments</code></td>
+        <td>listing_id, user_name, body, created_at</td>
+        <td>Free-text comments. Multiple per person per listing.</td>
+      </tr>
+    </table>
+
+    <div class="callout warn">
+      The current <code>listings.status</code> column is global (one status for the whole app). Once voting is added, status becomes per-user. Migrate existing shortlisted/rejected entries into <code>votes</code> during the schema change, then drop/ignore <code>listings.status</code>.
+    </div>
+
+    <h3>Name picker</h3>
+    <p>On first visit, a modal asks "Who are you?" with a fixed set of names (e.g. Nik, [girlfriend], [flatmate 1], [flatmate 2]). The chosen name is stored in <code>localStorage</code> or a cookie. No server-side session needed — just a plain string sent with each vote/comment request.</p>
+    <p>Names are hardcoded in a <code>FLATMATES</code> list in <code>config.py</code> — easy to update.</p>
+
+    <h3>Dashboard changes</h3>
+    <ul>
+      <li>Shortlist/Reject buttons become per-user — current user's action is shown highlighted</li>
+      <li>Vote summary row on each card: <strong>Nik ✓ &nbsp; Alex ? &nbsp; Sam ✗</strong></li>
+      <li>Filter: "Show only listings everyone shortlisted" (useful for final decision)</li>
+      <li>Collapsible comment thread beneath each card — shows existing comments + a text input to add one</li>
+    </ul>
+
+    <h3>Map changes</h3>
+    <ul>
+      <li>Popup shows vote summary (who voted what) and last 2 comments</li>
+      <li>Vote buttons in popup work the same as on cards</li>
+    </ul>
+
+    <h3>New API endpoints needed</h3>
+    <pre><span class="comment"># Vote on a listing (replaces current /action/<id>)</span>
+POST /vote/&lt;listing_id&gt;
+Body: { "user": "Nik", "status": "shortlisted" }
+
+<span class="comment"># Add a comment</span>
+POST /comment/&lt;listing_id&gt;
+Body: { "user": "Nik", "body": "Love the roof terrace!" }
+
+<span class="comment"># Get comments for a listing (used by popup)</span>
+GET /comments/&lt;listing_id&gt;</pre>
+  </div>
+
+  <!-- ── TRACK 2: CLOUD ── -->
+  <h2>2 — Cloud deployment (Railway) <span class="effort">~1 hr</span></h2>
+
+  <div class="section">
+    <p>Deploy to <a href="https://railway.app">Railway</a>: Python/Flask native, persistent volume for SQLite, ~$5/month, URL assigned automatically.</p>
+
+    <h3>Steps</h3>
+    <div class="step"><span class="step-num">1</span><div class="step-body">Initialise a git repo in the project folder if you haven't: <code>git init &amp;&amp; git add . &amp;&amp; git commit -m "initial"</code></div></div>
+    <div class="step"><span class="step-num">2</span><div class="step-body">Push to a GitHub repo (can be private)</div></div>
+    <div class="step"><span class="step-num">3</span><div class="step-body">Create <code>Procfile</code> in the project root: <code>web: python main.py</code></div></div>
+    <div class="step"><span class="step-num">4</span><div class="step-body">Go to <a href="https://railway.app">railway.app</a> → New Project → Deploy from GitHub repo</div></div>
+    <div class="step"><span class="step-num">5</span><div class="step-body">In Railway settings → Variables, add <code>TFL_API_KEY</code></div></div>
+    <div class="step"><span class="step-num">6</span><div class="step-body">Add a Volume in Railway and set mount path to <code>/app/data</code> so the SQLite DB persists across deploys</div></div>
+    <div class="step"><span class="step-num">7</span><div class="step-body">Railway assigns a public URL like <code>flat-hunter.up.railway.app</code> — share this with your flatmates</div></div>
+
+    <h3>Sending the existing DB to the cloud</h3>
+    <p>Once Railway is set up, upload your local <code>data/listings.db</code> to the Railway volume so you don't start from scratch (all existing listings, travel times, shortlists carry over).</p>
+    <pre><span class="comment"># Install Railway CLI</span>
+npm install -g @railway/cli
+
+<span class="comment"># Upload local DB to volume</span>
+railway run --service flat-hunter -- cp data/listings.db /app/data/listings.db</pre>
+
+    <div class="callout warn">
+      <strong>Rightmove + cloud IPs:</strong> Rightmove sometimes blocks requests from cloud provider IPs. Test by checking the scraper logs after deploy. If it fails, keep the scraper running locally and only host the dashboard on Railway — the scraper pushes new listings via a <code>POST /ingest</code> endpoint (easy to add). TfL API calls are fine from cloud.
+    </div>
+
+    <div class="callout">
+      <strong>SQLite concurrency:</strong> Fine for 3–4 users. If you see database-locked errors, Railway has a one-click Postgres add-on — swap <code>sqlite3</code> for <code>psycopg2</code> in <code>db/database.py</code>.
+    </div>
+
+    <h3>Sharing access</h3>
+    <p>The Railway URL is public by default. For a bit of protection without full auth, you can add a simple <strong>secret URL path</strong> — e.g. <code>/secret-flatmates-only/</code> that sets a cookie allowing access. This takes ~30 mins and keeps the app private without building a full login system.</p>
+    <p>Alternatively, Railway supports <strong>Private Networking</strong> with a one-click toggle, but that requires everyone to be on the same Railway team.</p>
+  </div>
+
+  <!-- ── DOING BOTH ── -->
+  <h2>Doing both together</h2>
+  <div class="section">
+    <p>The cleanest sequence:</p>
+    <ol>
+      <li>Build comments/voting locally (easier to iterate)</li>
+      <li>Test with 2–3 people using <code>localhost</code> to check the UX</li>
+      <li>Deploy to Railway</li>
+      <li>Upload existing DB</li>
+      <li>Share URL with flatmates</li>
+    </ol>
+    <p>Total effort: roughly one focused afternoon.</p>
+  </div>
+
+  <!-- ── FURTHER OUT ── -->
+  <h2>Further out</h2>
+  <div class="section">
+    <ul>
+      <li><strong>Zoopla integration</strong> — same pipeline, second source</li>
+      <li><strong>Telegram/email alerts</strong> — push notification when a new listing passes all filters</li>
+      <li><strong>Price history</strong> — track when an agent reduces the asking rent</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

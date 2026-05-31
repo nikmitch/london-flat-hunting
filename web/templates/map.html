@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>London Flat Hunter — Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1c1c1e; color: #fff;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #1c1c1e; padding: 12px 20px;
+      display: flex; align-items: center; gap: 16px;
+      border-bottom: 1px solid #2c2c2e; flex-shrink: 0; z-index: 1000;
+    }
+    nav h1 { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-links a {
+      color: #adb5bd; text-decoration: none; font-size: 0.85rem;
+      padding: 5px 12px; border-radius: 6px;
+    }
+    .nav-links a:hover { background: #2c2c2e; color: #fff; }
+    .nav-links a.active { background: #4a9eff; color: #fff; }
+    .nav-controls { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+    .toggle-btn {
+      background: #2c2c2e; border: 1px solid #3a3a3c; color: #fff;
+      padding: 5px 12px; border-radius: 6px; font-size: 0.82rem; cursor: pointer;
+    }
+    .toggle-btn.active { background: #4a9eff; border-color: #4a9eff; }
+    .count-badge { font-size: 0.8rem; color: #adb5bd; white-space: nowrap; }
+    .user-chip {
+      background: #4a9eff; color: #fff; padding: 4px 12px; border-radius: 20px;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; white-space: nowrap;
+    }
+    .user-chip.unset { background: #3a3a3c; color: #adb5bd; }
+
+    /* ── Map ── */
+    #map { flex: 1; }
+
+    /* ── Popup card ── */
+    .leaflet-popup-content-wrapper {
+      padding: 0; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .leaflet-popup-content { margin: 0; width: 300px !important; }
+    .leaflet-popup-tip-container { display: none; }
+
+    .pop { font-size: 13px; line-height: 1.4; color: #212529; }
+
+    .pop-photo {
+      width: 100%; height: 160px; object-fit: cover; display: block;
+      background: #dee2e6;
+    }
+    .pop-photo-placeholder {
+      width: 100%; height: 100px; background: #e9ecef;
+      display: flex; align-items: center; justify-content: center;
+      color: #adb5bd; font-size: 0.82rem;
+    }
+    .pop-body { padding: 12px 14px; }
+
+    .pop-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+    .pop-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 3px; }
+    .pop-price { font-size: 1.1rem; font-weight: 700; }
+    .pop-beds  { color: #6c757d; font-size: 0.8rem; }
+    .pop-dates { font-size: 0.75rem; color: #868e96; margin-bottom: 10px; display: flex; gap: 10px; }
+    .pop-dates .avail-ideal { color: #2b8a3e; font-weight: 500; }
+    .pop-dates .avail-late  { color: #e67700; font-weight: 500; }
+
+    /* travel table */
+    .pop-tt { width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-bottom: 10px; }
+    .pop-tt th {
+      text-align: center; color: #6c757d; font-weight: 600;
+      padding: 3px 3px 5px; border-bottom: 1px solid #e9ecef;
+    }
+    .pop-tt th.dest { text-align: left; }
+    .pop-tt td { text-align: center; padding: 4px 3px; border-bottom: 1px solid #f1f3f5; }
+    .pop-tt td.dest { text-align: left; color: #495057; font-weight: 500; white-space: nowrap; padding-right: 6px; }
+    .pop-tt tr:last-child td { border-bottom: none; }
+
+    .pill {
+      display: inline-block; padding: 1px 6px; border-radius: 8px;
+      font-weight: 700; font-size: 0.7rem; min-width: 30px;
+    }
+    .pg { background: #d3f9d8; color: #2b8a3e; }
+    .pa { background: #fff3bf; color: #e67700; }
+    .pr { background: #ffe3e3; color: #c92a2a; }
+    .pn { background: #f1f3f5; color: #adb5bd; }
+
+    /* vote row in popup */
+    .pop-votes {
+      display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .pop-vote-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 7px; border-radius: 20px; font-size: 0.7rem; font-weight: 600;
+      background: #f1f3f5; color: #868e96;
+    }
+    .pop-vote-chip.shortlisted { background: #d3f9d8; color: #2b8a3e; }
+    .pop-vote-chip.rejected    { background: #ffe3e3; color: #c92a2a; }
+
+    /* recent comments in popup */
+    .pop-comments { border-top: 1px solid #f1f3f5; padding-top: 8px; margin-top: 2px; }
+    .pop-comment { font-size: 0.75rem; color: #495057; margin-bottom: 5px; }
+    .pop-comment strong { color: #212529; }
+
+    .pop-actions { display: flex; gap: 6px; padding: 0 14px 12px; }
+    .pop-actions a, .pop-actions button {
+      flex: 1; padding: 7px 0; border-radius: 7px; font-size: 0.8rem;
+      font-weight: 600; text-align: center; cursor: pointer;
+      text-decoration: none; border: none;
+    }
+    .btn-view      { background: #4a9eff; color: #fff; }
+    .btn-shortlist { background: #2ecc71; color: #fff; }
+    .btn-reject    { background: #e9ecef; color: #495057; }
+    .btn-undo      { background: #e9ecef; color: #495057; font-weight: 400; }
+
+    /* Legend */
+    .legend {
+      position: absolute; bottom: 30px; right: 10px; z-index: 1000;
+      background: rgba(255,255,255,0.92); color: #212529;
+      padding: 12px 14px; border-radius: 8px; font-size: 0.78rem;
+      backdrop-filter: blur(4px); box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .legend-row:last-child { margin-bottom: 0; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Name picker modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: #fff; color: #212529;
+      border-radius: 16px; padding: 36px 32px;
+      max-width: 360px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+    .modal h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+    .modal p { color: #6c757d; font-size: 0.88rem; margin-bottom: 24px; }
+    .name-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .name-btn {
+      padding: 14px; border: 2px solid #e9ecef; border-radius: 10px;
+      background: #fff; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: all 0.12s; color: #212529;
+    }
+    .name-btn:hover { border-color: #4a9eff; color: #4a9eff; background: #f0f7ff; }
+  </style>
+</head>
+<body>
+
+<!-- Name picker modal -->
+<div class="modal-overlay hidden" id="name-modal">
+  <div class="modal">
+    <h2>Who are you?</h2>
+    <p>Pick your name — so your shortlists and votes are tracked separately.</p>
+    <div class="name-buttons">
+      {% for name in flatmates %}
+      <button class="name-btn" onclick="pickName('{{ name }}')">{{ name }}</button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<nav>
+  <h1>London Flat Hunter</h1>
+  <div class="nav-links">
+    <a href="/">Cards</a>
+    <a href="/map" class="active">Map</a>
+  </div>
+  <div class="nav-controls">
+    <button class="toggle-btn active" id="btn-all"   onclick="setFilter('active')">All qualifying</button>
+    <button class="toggle-btn"        id="btn-short" onclick="setFilter('shortlisted')">My shortlist</button>
+    <button class="toggle-btn"        id="btn-all2"  onclick="setFilter('all')">Inc. rejected</button>
+    <span class="count-badge" id="count-label">Loading…</span>
+    <button class="toggle-btn" id="btn-theme" onclick="swapTheme()" style="margin-left:8px">✦ Disco</button>
+    <button class="user-chip unset" id="user-chip" onclick="showNamePicker()">Who are you?</button>
+  </div>
+</nav>
+
+<div id="map"></div>
+
+<div class="legend">
+  <div class="legend-row"><div class="legend-dot" style="background:#2ecc71"></div>&lt; 20 min</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#f39c12"></div>20–30 min</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#e74c3c"></div>&gt; 30 (bus route)</div>
+  <div class="legend-row">
+    <svg width="14" height="14" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="#2ecc71" stroke-width="2.5"/><polygon points="14,5 16.2,11 22.5,11 17.5,15 19.5,21.5 14,17.8 8.5,21.5 10.5,15 5.5,11 11.8,11" fill="#2ecc71"/></svg>
+    Shortlisted
+  </div>
+  <div class="legend-row"><div style="width:12px;height:12px;border-radius:20px;background:#1a2e5a;flex-shrink:0"></div>Destinations</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+const DESTINATIONS = {{ destinations | tojson }};
+const MODES = {{ modes | tojson }};
+const FLATMATES = {{ flatmates | tojson }};
+
+// ── Name picker ──────────────────────────────────────────────────────────
+function currentUser() {
+  return localStorage.getItem('flatmate') || '';
+}
+
+function pickName(name) {
+  localStorage.setItem('flatmate', name);
+  document.cookie = `flatmate=${encodeURIComponent(name)}; path=/; max-age=31536000; SameSite=Lax`;
+  document.getElementById('name-modal').classList.add('hidden');
+  const chip = document.getElementById('user-chip');
+  chip.textContent = name;
+  chip.classList.remove('unset');
+  loadListings(currentFilter);
+}
+
+function showNamePicker() {
+  document.getElementById('name-modal').classList.remove('hidden');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const stored = localStorage.getItem('flatmate');
+  const chip = document.getElementById('user-chip');
+  if (!stored) {
+    document.getElementById('name-modal').classList.remove('hidden');
+  } else {
+    document.cookie = `flatmate=${encodeURIComponent(stored)}; path=/; max-age=31536000; SameSite=Lax`;
+    chip.textContent = stored;
+    chip.classList.remove('unset');
+  }
+});
+
+const map = L.map('map', { zoomControl: true }).setView([51.524, -0.085], 12);
+
+// ── Theme definitions ─────────────────────────────────────────────────────
+const DISCO_PALETTES = [
+  ['#f472b6','#818cf8'],['#fb923c','#e879f9'],['#34d399','#60a5fa'],
+  ['#fbbf24','#f472b6'],['#a78bfa','#fb7185'],['#e879f9','#fbbf24'],
+  ['#f9a8d4','#c084fc'],['#86efac','#fb923c'],
+];
+
+const THEMES = {
+  2: {
+    tile: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    pinFn(color, _id) {
+      return L.divIcon({
+        html: `<svg width="24" height="24" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="11" fill="white" stroke="${color}" stroke-width="2.5"/>
+          <circle cx="12" cy="12" r="5.5" fill="${color}"/>
+        </svg>`,
+        className: '', iconSize: [24,24], iconAnchor: [12,12], popupAnchor: [0,-16],
+      });
+    },
+    starFn(color, _id) {
+      return L.divIcon({
+        html: `<svg width="28" height="28" viewBox="0 0 28 28">
+          <circle cx="14" cy="14" r="13" fill="white" stroke="${color}" stroke-width="2.5"/>
+          <polygon points="14,5 16.2,11 22.5,11 17.5,15 19.5,21.5 14,17.8 8.5,21.5 10.5,15 5.5,11 11.8,11" fill="${color}"/>
+        </svg>`,
+        className: '', iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-18],
+      });
+    },
+    destHtml(label) {
+      return `<div style="background:#1a2e5a;color:white;padding:5px 13px;border-radius:20px;font-size:0.82rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(26,46,90,0.35)">${label}</div>`;
+    },
+    clusterColor: '#4a9eff',
+    legendBg: 'rgba(255,255,255,0.92)', legendColor: '#212529',
+  },
+  7: {
+    tile: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    pinFn(color, id) {
+      const [c1, c2] = DISCO_PALETTES[id % DISCO_PALETTES.length];
+      const gid = `dg${id}`;
+      return L.divIcon({
+        html: `<svg width="24" height="30" viewBox="0 0 24 30" style="filter:drop-shadow(0 0 7px ${c1}) drop-shadow(0 0 14px ${c2}88)">
+          <defs><radialGradient id="${gid}" cx="35%" cy="35%">
+            <stop offset="0%" stop-color="white" stop-opacity="0.9"/>
+            <stop offset="40%" stop-color="${c1}"/>
+            <stop offset="100%" stop-color="${c2}"/>
+          </radialGradient></defs>
+          <ellipse cx="12" cy="15" rx="11" ry="14" fill="url(#${gid})" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+        </svg>`,
+        className: '', iconSize: [24,30], iconAnchor: [12,15], popupAnchor: [0,-18],
+      });
+    },
+    starFn(color, id) {
+      const [c1, c2] = DISCO_PALETTES[id % DISCO_PALETTES.length];
+      const gid = `dgs${id}`;
+      return L.divIcon({
+        html: `<svg width="34" height="34" viewBox="0 0 34 34" style="filter:drop-shadow(0 0 8px ${c1}) drop-shadow(0 0 18px ${c2}88)">
+          <defs><radialGradient id="${gid}"><stop offset="0%" stop-color="white" stop-opacity="0.95"/>
+            <stop offset="50%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></radialGradient></defs>
+          <polygon points="17,2 19.5,9.5 27,9.5 21.5,14.5 24,22 17,18 10,22 12.5,14.5 7,9.5 14.5,9.5" fill="url(#${gid})" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+          <circle cx="17" cy="13" r="3.5" fill="rgba(255,255,255,0.8)"/>
+        </svg>`,
+        className: '', iconSize: [34,34], iconAnchor: [17,17], popupAnchor: [0,-20],
+      });
+    },
+    destHtml(label) {
+      return `<div style="color:white;padding:5px 12px;font-size:0.9rem;font-weight:900;white-space:nowrap;letter-spacing:1.5px;text-shadow:0 0 8px #f472b6,0 0 16px #818cf8,0 0 24px #f472b6">✦ ${label}</div>`;
+    },
+    clusterColor: '#a855f7',
+    legendBg: 'rgba(20,20,30,0.92)', legendColor: '#fff',
+  },
+};
+
+let activeTheme = 2;
+let tileLayer = L.tileLayer(THEMES[2].tile, { attribution: '&copy; CARTO', maxZoom: 19 }).addTo(map);
+
+// ── Destination markers (rebuilt on theme swap) ───────────────────────────
+let destMarkers = [];
+function buildDestMarkers() {
+  destMarkers.forEach(m => map.removeLayer(m));
+  destMarkers = [];
+  const t = THEMES[activeTheme];
+  Object.values(DESTINATIONS).forEach(d => {
+    const m = L.marker([d.lat, d.lon], {
+      icon: L.divIcon({ html: t.destHtml(d.short), className: '', iconSize: [1,1], iconAnchor: [0,0] }),
+      zIndexOffset: 2000,
+    }).addTo(map).bindTooltip(d.address, { direction: 'top' });
+    destMarkers.push(m);
+  });
+}
+buildDestMarkers();
+
+// ── Icons ─────────────────────────────────────────────────────────────────
+function pinIcon(color, id)  { return THEMES[activeTheme].pinFn(color, id); }
+function starIcon(color, id) { return THEMES[activeTheme].starFn(color, id); }
+
+// ── Travel time pill HTML ─────────────────────────────────────────────────
+function pillHtml(mins) {
+  if (mins === null || mins === undefined) return `<span class="pill pn">—</span>`;
+  const cls = mins <= 20 ? 'pg' : mins <= 30 ? 'pa' : 'pr';
+  return `<span class="pill ${cls}">${mins}m</span>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Popup HTML ────────────────────────────────────────────────────────────
+function makePopupHtml(p) {
+  const photoHtml = p.photo_url
+    ? `<img class="pop-photo" src="${p.photo_url}" loading="lazy" onerror="this.style.display='none'">`
+    : `<div class="pop-photo-placeholder">No photo</div>`;
+
+  const daysHtml = p.days_on !== null && p.days_on !== undefined
+    ? (p.days_on === 0 ? 'Listed today' : p.days_on === 1 ? 'Listed yesterday' : `Listed ${p.days_on}d ago`)
+    : '';
+
+  const availClass = p.avail_ideal ? 'avail-ideal' : 'avail-late';
+
+  // Travel time table
+  const destEntries = Object.entries(DESTINATIONS);
+  const modeEntries = Object.entries(MODES);
+  const headerCols = modeEntries.map(([, m]) => `<th>${m.label}</th>`).join('');
+  const rows = destEntries.map(([dk, d]) => {
+    const cells = modeEntries.map(([mk]) => {
+      const val = p.tt[`${dk}__${mk}`];
+      return `<td>${pillHtml(val)}</td>`;
+    }).join('');
+    return `<tr>
+      <td class="dest">${d.short} <span style="color:#adb5bd;font-weight:400">${d.depart_time.slice(0,2)}:${d.depart_time.slice(2)}</span></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  // Vote summary
+  const voteChips = FLATMATES.map(name => {
+    const v = (p.votes && p.votes[name]) || 'new';
+    const icon = v === 'shortlisted' ? '✓' : v === 'rejected' ? '✗' : '·';
+    return `<span class="pop-vote-chip ${v !== 'new' ? v : ''}">${icon} ${escapeHtml(name)}</span>`;
+  }).join('');
+
+  // Recent comments
+  let commentsHtml = '';
+  if (p.recent_comments && p.recent_comments.length > 0) {
+    const items = p.recent_comments.map(c =>
+      `<div class="pop-comment"><strong>${escapeHtml(c.user_name)}:</strong> ${escapeHtml(c.body)}</div>`
+    ).join('');
+    commentsHtml = `<div class="pop-comments">${items}</div>`;
+  }
+
+  // Action buttons (per-user via /vote/)
+  const myVote = p.my_vote || 'new';
+  const actionBtns = myVote === 'shortlisted'
+    ? `<button class="btn-undo" onclick="setStatus(${p.id},'new',this)">Undo shortlist</button>`
+    : myVote === 'rejected'
+    ? `<button class="btn-undo" onclick="setStatus(${p.id},'new',this)">Restore</button>`
+    : `<button class="btn-shortlist" onclick="setStatus(${p.id},'shortlisted',this)">Shortlist</button>
+       <button class="btn-reject"    onclick="setStatus(${p.id},'rejected',this)">Reject</button>`;
+
+  return `<div class="pop">
+    ${photoHtml}
+    <div class="pop-body">
+      <div class="pop-title">${escapeHtml(p.title)}</div>
+      <div class="pop-meta">
+        <span class="pop-price">£${p.price ? p.price.toLocaleString() : '—'}/mo</span>
+        <span class="pop-beds">${p.bedrooms} bed${p.bedrooms !== 1 ? 's' : ''}</span>
+        ${p.postcode ? `<span class="pop-beds">${escapeHtml(p.postcode)}</span>` : ''}
+      </div>
+      <div class="pop-dates">
+        ${daysHtml ? `<span>${daysHtml}</span>` : ''}
+        <span class="${availClass}">${escapeHtml(p.available)}</span>
+      </div>
+      <table class="pop-tt">
+        <thead><tr><th class="dest"></th>${headerCols}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="pop-votes">${voteChips}</div>
+      ${commentsHtml}
+    </div>
+    <div class="pop-actions">
+      ${actionBtns}
+      <a class="btn-view" href="${p.url}" target="_blank" rel="noopener">View</a>
+    </div>
+  </div>`;
+}
+
+// ── Marker management ─────────────────────────────────────────────────────
+let clusterGroup = null;
+let currentFilter = '{{ status_filter }}';
+const markerById = {};
+
+async function loadListings(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.toggle-btn:not(#btn-theme):not(#user-chip)').forEach(b => b.classList.remove('active'));
+  const btnMap = { active: 'btn-all', shortlisted: 'btn-short', all: 'btn-all2' };
+  const btn = document.getElementById(btnMap[filter] || 'btn-all');
+  if (btn) btn.classList.add('active');
+
+  const resp = await fetch(`/api/listings.json?status=${filter}`);
+  const geojson = await resp.json();
+
+  if (clusterGroup) map.removeLayer(clusterGroup);
+  Object.keys(markerById).forEach(k => delete markerById[k]);
+
+  const cc = THEMES[activeTheme].clusterColor;
+  clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount();
+      return L.divIcon({
+        html: `<div style="background:${cc};color:#fff;border-radius:50%;width:34px;height:34px;
+                           display:flex;align-items:center;justify-content:center;
+                           font-weight:700;font-size:13px;border:2px solid rgba(255,255,255,0.3)">${count}</div>`,
+        className: '', iconSize: [34, 34], iconAnchor: [17, 17],
+      });
+    },
+  });
+
+  geojson.features.forEach(f => {
+    const p = f.properties;
+    const [lng, lat] = f.geometry.coordinates;
+    if (p.my_vote === 'rejected' && filter !== 'all') return;
+
+    const isShortlisted = p.my_vote === 'shortlisted';
+    const icon = isShortlisted ? starIcon(p.color, p.id) : pinIcon(p.color, p.id);
+    const marker = L.marker([lat, lng], { icon });
+    marker.bindPopup(makePopupHtml(p), { maxWidth: 320, minWidth: 300 });
+    marker._listingProps = p;
+    markerById[p.id] = marker;
+    clusterGroup.addLayer(marker);
+  });
+
+  map.addLayer(clusterGroup);
+  document.getElementById('count-label').textContent =
+    `${geojson.features.length} listing${geojson.features.length !== 1 ? 's' : ''}`;
+}
+
+function setFilter(f) { loadListings(f); }
+
+async function setStatus(id, status, btn) {
+  const user = currentUser();
+  if (!user) { showNamePicker(); return; }
+  await fetch(`/vote/${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user, status }),
+  });
+  const marker = markerById[id];
+  if (marker) {
+    marker._listingProps.my_vote = status;
+    if (marker._listingProps.votes) {
+      marker._listingProps.votes[user] = status;
+    }
+    const p = marker._listingProps;
+    const isShortlisted = status === 'shortlisted';
+    marker.setIcon(isShortlisted ? starIcon(p.color, p.id) : pinIcon(p.color, p.id));
+    marker.setPopupContent(makePopupHtml(p));
+  }
+}
+
+function swapTheme() {
+  activeTheme = activeTheme === 2 ? 7 : 2;
+  const t = THEMES[activeTheme];
+  const btn = document.getElementById('btn-theme');
+  btn.classList.toggle('active', activeTheme === 7);
+
+  map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(t.tile, { attribution: '&copy; CARTO', maxZoom: 19 }).addTo(map);
+
+  const legend = document.querySelector('.legend');
+  legend.style.background = t.legendBg;
+  legend.style.color = t.legendColor;
+
+  buildDestMarkers();
+  loadListings(currentFilter);
+}
+
+loadListings(currentFilter);
+</script>
+</body>
+</html>

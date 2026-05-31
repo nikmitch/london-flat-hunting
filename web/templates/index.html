@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>London Flat Hunter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f1f3f5;
+      color: #212529;
+      font-size: 14px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1c1c1e;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
+    header .count { color: #adb5bd; font-size: 0.85rem; white-space: nowrap; }
+
+    .user-chip {
+      background: #4a9eff;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      border: none;
+    }
+    .user-chip.unset {
+      background: #3a3a3c;
+      color: #adb5bd;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      flex: 1;
+    }
+    .filters select, .filters input {
+      background: #2c2c2e;
+      border: 1px solid #3a3a3c;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+    }
+    .filters select:focus, .filters input:focus { outline: 2px solid #4a9eff; }
+    .filters input::placeholder { color: #6c757d; }
+
+    /* ── Grid ── */
+    main {
+      max-width: 1400px;
+      margin: 24px auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 20px;
+    }
+
+    .empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 80px 20px;
+      color: #868e96;
+    }
+    .empty h2 { font-size: 1.1rem; margin-bottom: 8px; }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.15s;
+    }
+    .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .card.shortlisted { box-shadow: 0 0 0 2px #2ecc71, 0 4px 16px rgba(0,0,0,0.1); }
+    .card.rejected { opacity: 0.45; }
+    .new-badge {
+      position: absolute; top: 10px; left: 10px;
+      background: #2ecc71; color: #fff;
+      font-size: 0.72rem; font-weight: 700;
+      padding: 3px 8px; border-radius: 4px; letter-spacing: 0.3px;
+    }
+    .days-on-market { font-size: 0.75rem; color: #868e96; }
+
+    .card-photo {
+      position: relative;
+      height: 200px;
+      background: #dee2e6;
+      overflow: hidden;
+    }
+    .card-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card-photo .no-photo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #adb5bd;
+      font-size: 0.85rem;
+    }
+
+    .card-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+    .card-title { font-weight: 600; font-size: 0.95rem; line-height: 1.3; }
+    .card-meta { display: flex; gap: 10px; align-items: baseline; }
+    .card-price { font-size: 1.2rem; font-weight: 700; color: #1c1c1e; }
+    .card-beds { color: #6c757d; font-size: 0.82rem; }
+
+    /* ── Travel table ── */
+    .travel-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    .travel-table th {
+      text-align: center;
+      color: #6c757d;
+      font-weight: 600;
+      padding: 4px 4px 6px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .travel-table th.dest-col { text-align: left; }
+    .travel-table td {
+      text-align: center;
+      padding: 5px 4px;
+      border-bottom: 1px solid #f1f3f5;
+    }
+    .travel-table td.dest-label {
+      text-align: left;
+      color: #495057;
+      font-weight: 500;
+      white-space: nowrap;
+      padding-right: 8px;
+    }
+    .travel-table tr:last-child td { border-bottom: none; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      min-width: 36px;
+    }
+    .pill-green  { background: #d3f9d8; color: #2b8a3e; }
+    .pill-amber  { background: #fff3bf; color: #e67700; }
+    .pill-red    { background: #ffe3e3; color: #c92a2a; }
+    .pill-grey   { background: #f1f3f5; color: #adb5bd; }
+
+    /* ── Vote summary ── */
+    .vote-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 6px 16px 0;
+    }
+    .vote-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #f1f3f5;
+      color: #868e96;
+    }
+    .vote-chip.shortlisted { background: #d3f9d8; color: #2b8a3e; }
+    .vote-chip.rejected    { background: #ffe3e3; color: #c92a2a; }
+
+    /* ── Pagination ── */
+    .pagination {
+      grid-column: 1/-1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px 0 32px;
+    }
+    .pagination a, .pagination span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 7px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      color: #495057;
+      background: #fff;
+      border: 1px solid #dee2e6;
+    }
+    .pagination a:hover { background: #e9ecef; }
+    .pagination .current { background: #4a9eff; color: #fff; border-color: #4a9eff; font-weight: 700; }
+    .pagination .disabled { opacity: 0.4; pointer-events: none; }
+
+    /* ── Actions ── */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px 0;
+    }
+    .btn {
+      flex: 1;
+      padding: 7px 0;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-shortlist { background: #2ecc71; color: #fff; }
+    .btn-reject    { background: #e9ecef; color: #495057; }
+    .btn-undo      { background: #e9ecef; color: #495057; font-weight: 400; }
+    .btn-open      { background: #4a9eff; color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+
+    /* ── Comments ── */
+    .comments-section { padding: 8px 16px 14px; }
+    .comments-toggle {
+      background: none;
+      border: none;
+      color: #6c757d;
+      font-size: 0.78rem;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .comments-toggle:hover { color: #495057; }
+    .comments-body { display: none; margin-top: 10px; }
+    .comments-body.open { display: block; }
+    .comment-item {
+      padding: 7px 0;
+      border-bottom: 1px solid #f1f3f5;
+      font-size: 0.8rem;
+    }
+    .comment-item:last-child { border-bottom: none; }
+    .comment-meta { font-weight: 600; color: #495057; margin-bottom: 2px; font-size: 0.75rem; }
+    .comment-time { color: #adb5bd; font-weight: 400; margin-left: 6px; }
+    .comment-form { display: flex; gap: 6px; margin-top: 8px; }
+    .comment-input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #dee2e6;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-family: inherit;
+    }
+    .comment-input:focus { outline: 2px solid #4a9eff; border-color: transparent; }
+    .comment-submit {
+      background: #4a9eff;
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .comment-submit:hover { background: #3a8eef; }
+
+    /* ── Name picker modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 360px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .modal h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+    .modal p { color: #6c757d; font-size: 0.88rem; margin-bottom: 24px; }
+    .name-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .name-btn {
+      padding: 14px;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s;
+      color: #212529;
+    }
+    .name-btn:hover { border-color: #4a9eff; color: #4a9eff; background: #f0f7ff; }
+  </style>
+</head>
+<body>
+
+<!-- Name picker modal -->
+<div class="modal-overlay hidden" id="name-modal">
+  <div class="modal">
+    <h2>Who are you?</h2>
+    <p>Pick your name — we'll remember it so you can shortlist and comment.</p>
+    <div class="name-buttons">
+      {% for name in flatmates %}
+      <button class="name-btn" onclick="pickName('{{ name }}')">{{ name }}</button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>London Flat Hunter</h1>
+  <div style="display:flex;gap:4px;">
+    <a href="/"    style="color:#fff;background:rgba(255,255,255,0.15);padding:5px 12px;border-radius:6px;text-decoration:none;font-size:0.82rem;font-weight:600">Cards</a>
+    <a href="/map" style="color:#adb5bd;padding:5px 12px;border-radius:6px;text-decoration:none;font-size:0.82rem">Map</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:2px;">
+    <span class="count">{{ listings|length }} listing{{ 's' if listings|length != 1 else '' }} match</span>
+    <span style="color:#6c757d;font-size:0.75rem;">{{ rejected_commute }} commute · {{ rejected_avail }} too late · {{ calculating }} calculating</span>
+  </div>
+
+  <form class="filters" method="get">
+    <select name="status" onchange="this.form.submit()">
+      <option value="active"      {% if status_filter == 'active'      %}selected{% endif %}>Hide rejected</option>
+      <option value="shortlisted" {% if status_filter == 'shortlisted' %}selected{% endif %}>My shortlist</option>
+      <option value="consensus"   {% if status_filter == 'consensus'   %}selected{% endif %}>Everyone shortlisted</option>
+    </select>
+
+    <select name="sort" onchange="this.form.submit()">
+      <option value="best"    {% if sort_by == 'best'    %}selected{% endif %}>Best match</option>
+      <option value="commute" {% if sort_by == 'commute' %}selected{% endif %}>Best commute</option>
+      <option value="price"   {% if sort_by == 'price'   %}selected{% endif %}>Cheapest first</option>
+    </select>
+  </form>
+
+  <button class="user-chip {% if not current_user %}unset{% endif %}"
+          id="user-chip" onclick="showNamePicker()">
+    {% if current_user %}{{ current_user }}{% else %}Who are you?{% endif %}
+  </button>
+</header>
+
+<main>
+  {% if not listings %}
+    <div class="empty">
+      <h2>No listings yet</h2>
+      <p>The scraper will populate this page. Check the terminal for progress.</p>
+    </div>
+  {% endif %}
+
+  {% for listing in listings %}
+  {% set tt = listing.tt %}
+  <div class="card {% if listing.my_vote == 'shortlisted' %}shortlisted{% elif listing.my_vote == 'rejected' %}rejected{% endif %}"
+       id="card-{{ listing.id }}">
+
+    <div class="card-photo">
+      {% if listing.is_new_listing %}
+        <span class="new-badge">New</span>
+      {% endif %}
+      {% if listing.photo_url %}
+        <img src="{{ listing.photo_url }}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-photo\'>No photo</div>'">
+      {% else %}
+        <div class="no-photo">No photo</div>
+      {% endif %}
+    </div>
+
+    <div class="card-body">
+      <div class="card-title">{{ listing.title }}</div>
+      <div class="card-meta">
+        <span class="card-price">&pound;{{ "{:,}".format(listing.price_pcm) if listing.price_pcm else '—' }}/mo</span>
+        <span class="card-beds">{{ listing.bedrooms }} bed{% if listing.bedrooms != 1 %}s{% endif %}</span>
+        {% if listing.postcode %}<span class="card-beds">{{ listing.postcode }}</span>{% endif %}
+      </div>
+      <div class="days-on-market" style="display:flex;gap:12px;flex-wrap:wrap;">
+        <span>
+          {% if listing.days_on_market == 0 %}Listed today
+          {% elif listing.days_on_market == 1 %}Listed yesterday
+          {% elif listing.days_on_market is not none %}Listed {{ listing.days_on_market }}d ago
+          {% endif %}
+        </span>
+        <span style="color: {% if listing.avail_ideal %}#2b8a3e{% else %}#e67700{% endif %}; font-weight:500">
+          {{ listing.available_from_display }}
+        </span>
+      </div>
+
+      <table class="travel-table">
+        <thead>
+          <tr>
+            <th class="dest-col"></th>
+            {% for mode_key, mode in modes.items() %}
+            <th>{{ mode.label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for dest_key, dest in destinations.items() %}
+          <tr>
+            <td class="dest-label">{{ dest.short }} <span style="color:#adb5bd;font-weight:400">{{ dest.depart_time[:2] }}:{{ dest.depart_time[2:] }}</span></td>
+            {% for mode_key in modes %}
+              {% set mins = tt[dest_key][mode_key] %}
+              <td>
+                {% if mins is not none %}
+                  {% if mins <= 20 %}
+                    <span class="pill pill-green">{{ mins }}m</span>
+                  {% elif mins <= 30 %}
+                    <span class="pill pill-amber">{{ mins }}m</span>
+                  {% else %}
+                    <span class="pill pill-red">{{ mins }}m</span>
+                  {% endif %}
+                {% else %}
+                  <span class="pill pill-grey">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Vote summary -->
+    <div class="vote-row">
+      {% for name in flatmates %}
+        {% set v = listing.votes.get(name, 'new') %}
+        <span class="vote-chip {{ v if v != 'new' else '' }}">
+          {% if v == 'shortlisted' %}✓{% elif v == 'rejected' %}✗{% else %}·{% endif %}
+          {{ name }}
+        </span>
+      {% endfor %}
+    </div>
+
+    <div class="card-actions">
+      {% if listing.my_vote == 'shortlisted' %}
+        <button class="btn btn-undo" onclick="castVote({{ listing.id }}, 'new')">Undo shortlist</button>
+      {% elif listing.my_vote == 'rejected' %}
+        <button class="btn btn-undo" onclick="castVote({{ listing.id }}, 'new')">Restore</button>
+      {% else %}
+        <button class="btn btn-shortlist" onclick="castVote({{ listing.id }}, 'shortlisted')">Shortlist</button>
+        <button class="btn btn-reject"    onclick="castVote({{ listing.id }}, 'rejected')">Reject</button>
+      {% endif %}
+      <a class="btn btn-open" href="{{ listing.url }}" target="_blank" rel="noopener">View</a>
+    </div>
+
+    <!-- Comments -->
+    <div class="comments-section">
+      <button class="comments-toggle" onclick="toggleComments({{ listing.id }}, this)">
+        <span>💬</span>
+        <span id="ccount-{{ listing.id }}">{{ listing.comment_count }} comment{{ 's' if listing.comment_count != 1 else '' }}</span>
+      </button>
+      <div class="comments-body" id="cbody-{{ listing.id }}">
+        <div id="clist-{{ listing.id }}">
+          {% for c in listing.comments %}
+          <div class="comment-item">
+            <div class="comment-meta">{{ c.user_name }} <span class="comment-time">{{ c.created_at[:16].replace('T', ' ') }}</span></div>
+            <div>{{ c.body }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="comment-form">
+          <input class="comment-input" id="cinput-{{ listing.id }}" type="text" placeholder="Add a comment…" maxlength="500"
+                 onkeydown="if(event.key==='Enter'){submitComment({{ listing.id }})}">
+          <button class="comment-submit" onclick="submitComment({{ listing.id }})">Post</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  {% endfor %}
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    {% set base = "/?status=" ~ status_filter ~ "&sort=" ~ sort_by %}
+    <a href="{{ base }}&page={{ page - 1 }}" class="{% if page <= 1 %}disabled{% endif %}">&larr;</a>
+
+    {% for p in range(1, total_pages + 1) %}
+      {% if p == page %}
+        <span class="current">{{ p }}</span>
+      {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+        <a href="{{ base }}&page={{ p }}">{{ p }}</a>
+      {% elif p == page - 3 or p == page + 3 %}
+        <span style="background:none;border:none;color:#adb5bd">…</span>
+      {% endif %}
+    {% endfor %}
+
+    <a href="{{ base }}&page={{ page + 1 }}" class="{% if page >= total_pages %}disabled{% endif %}">&rarr;</a>
+  </div>
+  {% endif %}
+
+</main>
+
+<script>
+  // ── Name picker ──────────────────────────────────────────────────────────
+  function currentUser() {
+    return localStorage.getItem('flatmate') || '';
+  }
+
+  function pickName(name) {
+    localStorage.setItem('flatmate', name);
+    document.cookie = `flatmate=${encodeURIComponent(name)}; path=/; max-age=31536000; SameSite=Lax`;
+    document.getElementById('name-modal').classList.add('hidden');
+    // Reload so server renders with correct per-user data
+    window.location.reload();
+  }
+
+  function showNamePicker() {
+    document.getElementById('name-modal').classList.remove('hidden');
+  }
+
+  // Show modal on first visit if no name set
+  window.addEventListener('DOMContentLoaded', () => {
+    const stored = localStorage.getItem('flatmate');
+    if (!stored) {
+      document.getElementById('name-modal').classList.remove('hidden');
+    } else {
+      // Ensure cookie is in sync (in case localStorage was set but cookie expired)
+      document.cookie = `flatmate=${encodeURIComponent(stored)}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+  });
+
+  // ── Voting ───────────────────────────────────────────────────────────────
+  async function castVote(id, status) {
+    const user = currentUser();
+    if (!user) { showNamePicker(); return; }
+    const resp = await fetch(`/vote/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, status }),
+    });
+    if (resp.ok) {
+      window.location.reload();
+    }
+  }
+
+  // ── Comments ─────────────────────────────────────────────────────────────
+  function toggleComments(id, btn) {
+    const body = document.getElementById(`cbody-${id}`);
+    body.classList.toggle('open');
+    if (body.classList.contains('open')) {
+      document.getElementById(`cinput-${id}`).focus();
+    }
+  }
+
+  async function submitComment(id) {
+    const user = currentUser();
+    if (!user) { showNamePicker(); return; }
+    const input = document.getElementById(`cinput-${id}`);
+    const body = input.value.trim();
+    if (!body) return;
+    const resp = await fetch(`/comment/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, body }),
+    });
+    if (resp.ok) {
+      const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const list = document.getElementById(`clist-${id}`);
+      const div = document.createElement('div');
+      div.className = 'comment-item';
+      div.innerHTML = `<div class="comment-meta">${user} <span class="comment-time">${now}</span></div><div>${escapeHtml(body)}</div>`;
+      list.appendChild(div);
+      input.value = '';
+      // Update counter
+      const counter = document.getElementById(`ccount-${id}`);
+      const existing = list.querySelectorAll('.comment-item').length;
+      counter.textContent = `${existing} comment${existing !== 1 ? 's' : ''}`;
+    }
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+
+</body>
+</html>

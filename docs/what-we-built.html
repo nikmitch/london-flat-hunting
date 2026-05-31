@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What We've Built — London Flat Hunter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8f9fa; color: #212529; line-height: 1.6; }
+    .container { max-width: 860px; margin: 0 auto; padding: 48px 24px; }
+    .back { color: #4a9eff; text-decoration: none; font-size: 0.85rem; display: inline-block; margin-bottom: 24px; }
+    h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #6c757d; margin-bottom: 40px; }
+    h2 { font-size: 1.1rem; font-weight: 700; margin: 36px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef; }
+    h3 { font-size: 0.95rem; font-weight: 600; margin: 20px 0 8px; color: #343a40; }
+    p { margin-bottom: 10px; font-size: 0.92rem; }
+    ul, ol { margin: 8px 0 14px 22px; font-size: 0.92rem; }
+    li { margin-bottom: 5px; }
+    code { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.82em; }
+    pre { background: #1c1c1e; color: #f8f9fa; padding: 18px 20px; border-radius: 8px; overflow-x: auto; margin: 10px 0 18px; font-family: "SF Mono", Monaco, monospace; font-size: 0.82em; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.88rem; }
+    th { background: #e9ecef; text-align: left; padding: 9px 13px; font-weight: 600; }
+    td { padding: 9px 13px; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .section { background: #fff; border: 1px solid #e9ecef; border-radius: 10px; padding: 22px 24px; margin: 14px 0; }
+    .callout { background: #fff; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 0.9rem; }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.72em; font-weight: 700; }
+    .done { background: #d1fae5; color: #065f46; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="index.html">← Docs home</a>
+  <h1>What We've Built</h1>
+  <p class="subtitle">Complete feature inventory as of May 2026</p>
+
+  <h2>Scraper</h2>
+  <div class="section">
+    <ul>
+      <li>Rightmove search via <code>__NEXT_DATA__</code> JSON (Next.js page — no HTML parsing needed)</li>
+      <li>Deduplicates by listing URL; re-scrapes update <code>date_listed</code> and <code>available_from</code> for existing listings</li>
+      <li>Weekly prices auto-detected via <code>price.frequency == "weekly"</code> and multiplied by 4.3 for PCM equivalent</li>
+      <li>Uses <code>listingUpdate.listingUpdateDate</code> for "listed date" — not <code>firstVisibleDate</code>, which reflects original creation and can be years old for re-listed properties</li>
+      <li>Move-in date: prefers <code>letAvailableDate</code> from search JSON; daily fallback fetches individual listing pages and extracts from <code>&lt;dt&gt;Let available date&lt;/dt&gt;</code></li>
+    </ul>
+  </div>
+
+  <h2>Travel time calculator</h2>
+  <div class="section">
+    <ul>
+      <li>TfL Journey Planner API: 12 calls per listing (3 destinations × 4 modes)</li>
+      <li>5 listings processed in parallel; all 12 calls within each listing also run concurrently</li>
+      <li>Global rate limiter at 7 calls/sec across all threads (safely under 500/min TfL cap)</li>
+      <li>If <code>transit_no_bus</code> returns null, falls back to <code>transit_all</code> for the 30-min threshold check (some areas are bus-only)</li>
+      <li>Listings where all transit values are null (TfL glitch) have their rows cleared each scrape and are automatically retried</li>
+    </ul>
+
+    <h3>Destinations and modes</h3>
+    <table>
+      <tr><th>Destination</th><th>Address</th><th>Departure</th></tr>
+      <tr><td>MATS (your work)</td><td>71 Central Street, EC1V</td><td>09:00</td></tr>
+      <tr><td>LISA</td><td>25 Holywell Row, EC2A 4XE</td><td>07:00</td></tr>
+      <tr><td>King's Cross</td><td>King's Cross station, N1C</td><td>19:00</td></tr>
+    </table>
+    <p>Modes: <strong>walking · cycling · transit (no bus) · transit (all)</strong></p>
+  </div>
+
+  <h2>Dashboard (<code>/</code>)</h2>
+  <div class="section">
+    <ul>
+      <li>Card grid, 30 per page with pagination</li>
+      <li>Default sort: <strong>Best match</strong> (composite score — see Scoring below)</li>
+      <li>Also sortable by: best commute, cheapest first</li>
+      <li>Status filter: hide rejected / shortlisted only</li>
+      <li>Header stats: <em>N listings match · N commute · N too late · N calculating</em></li>
+      <li>Per-card: photo, price/beds/area, listed-N-days-ago, available-from (green if ideal window, amber if later), full 3×4 travel time table, Shortlist / Reject / View buttons</li>
+      <li>Travel time pills: green (&lt;20 min) / amber (20–30) / red (&gt;30)</li>
+      <li>Green "New" badge on photo for listings listed ≤ 2 days ago</li>
+    </ul>
+  </div>
+
+  <h2>Map (<code>/map</code>)</h2>
+  <div class="section">
+    <ul>
+      <li>Leaflet.js, no API key, all JS from CDN</li>
+      <li><strong>Theme 2 (default):</strong> light Carto tiles, circle pins with coloured ring, star-in-circle for shortlisted, navy pill destination labels</li>
+      <li><strong>Theme 7 (Disco ✦):</strong> dark no-labels tiles, iridescent oval pins with unique gradient per listing, 8-pointed starburst for shortlisted, glowing text destination labels. Toggle via "✦ Disco" button in nav.</li>
+      <li>Click any pin → rich popup: photo, price, beds, available-from, full 3×4 commute table, Shortlist/Reject/View buttons</li>
+      <li>Shortlisting from popup immediately swaps the pin to a star (no reload)</li>
+      <li>Layer toggles: all qualifying / shortlisted only / include rejected</li>
+      <li>Marker clustering — zooms out to numbered bubbles</li>
+      <li>Destination markers (MATS, LISA, KX) with tooltip showing full address</li>
+    </ul>
+  </div>
+
+  <h2>Hard filters</h2>
+  <div class="section">
+    <table>
+      <tr><th>Filter</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Price</td><td>£2,500–£3,300 pcm</td><td>Weekly prices auto-converted (×4.3)</td></tr>
+      <tr><td>Bedrooms</td><td>2+</td><td>2-bed visible but penalised in score (+15 pts)</td></tr>
+      <tr><td>Furnished</td><td>Yes</td><td>Rightmove search param</td></tr>
+      <tr><td>Commute</td><td>≤ 30 min to either work address</td><td>Non-bus preferred; falls back to transit+bus</td></tr>
+      <tr><td>Move-in</td><td>Available within 49 days of today</td><td>Relative — slides forward as time passes. Unknown dates pass through.</td></tr>
+      <tr><td>Removed</td><td>Hidden</td><td>Daily check marks removed listings</td></tr>
+    </table>
+  </div>
+
+  <h2>Scoring algorithm</h2>
+  <div class="section">
+    <p>Lower = better. Used for "Best match" sort.</p>
+    <pre>score = (worst_work_commute × 2)
+      + ((price_pcm - 2500) / 800 × 8)
+      + 15 if bedrooms < 3
+      + 0–10 availability penalty (linear, ideal→cutoff window)</pre>
+    <table>
+      <tr><th>Component</th><th>Weight</th><th>Equivalent</th></tr>
+      <tr><td>Commute (worst of MATS/LISA, transit)</td><td>×2 per minute</td><td>20-min commute = 40 pts</td></tr>
+      <tr><td>Price (normalised £2,500–£3,300)</td><td>×8 across range</td><td>£3,300 vs £2,500 = 8 pts</td></tr>
+      <tr><td>2-bed penalty</td><td>flat +15</td><td>≈ 7.5 extra commute minutes</td></tr>
+      <tr><td>Availability penalty</td><td>0–10 linear</td><td>≈ up to 5 extra commute minutes</td></tr>
+    </table>
+  </div>
+
+  <h2>Background jobs</h2>
+  <div class="section">
+    <table>
+      <tr><th>Job</th><th>Frequency</th><th>What it does</th></tr>
+      <tr><td>Scrape + travel times</td><td>Every 60 min</td><td>New Rightmove listings → upsert DB → calculate TfL times for any new ones</td></tr>
+      <tr><td>Daily listing check</td><td>Every 24 hrs</td><td>Fetches each listing page: marks removed ones; fills missing available-from dates</td></tr>
+    </table>
+  </div>
+
+  <h2>Data model</h2>
+  <div class="section">
+    <h3>listings</h3>
+    <table>
+      <tr><th>Column</th><th>Notes</th></tr>
+      <tr><td><code>url</code></td><td>Unique dedup key — <code>rightmove.co.uk/properties/{id}</code></td></tr>
+      <tr><td><code>price_pcm</code></td><td>Always monthly; weekly prices converted on ingest</td></tr>
+      <tr><td><code>lat / lon</code></td><td>From Rightmove's <code>location</code> field; postcodes.io fallback</td></tr>
+      <tr><td><code>date_listed</code></td><td>From <code>listingUpdate.listingUpdateDate</code> (agent's "Added on" date)</td></tr>
+      <tr><td><code>available_from</code></td><td>From <code>letAvailableDate</code> or daily page scrape; null = unknown</td></tr>
+      <tr><td><code>status</code></td><td>new / shortlisted / rejected</td></tr>
+      <tr><td><code>is_removed</code></td><td>1 if Rightmove page shows "removed by agent"</td></tr>
+    </table>
+
+    <h3>travel_times</h3>
+    <p>One row per (listing_id, destination, mode) — 12 rows per listing. <code>duration_minutes</code> is null if TfL returned no route.</p>
+  </div>
+
+  <h2>APIs used</h2>
+  <div class="section">
+    <table>
+      <tr><th>API</th><th>Cost</th><th>Key</th><th>Usage</th></tr>
+      <tr><td>TfL Journey Planner</td><td>Free</td><td><code>TFL_API_KEY</code> in <code>.env</code></td><td>Journey times; 500 req/min limit</td></tr>
+      <tr><td>postcodes.io</td><td>Free</td><td>None</td><td>Postcode → lat/lon fallback</td></tr>
+      <tr><td>Rightmove (scraping)</td><td>Free</td><td>None</td><td>Search pages + individual listing pages</td></tr>
+      <tr><td>Carto (map tiles)</td><td>Free</td><td>None</td><td>Light and dark-nolabels tile layers</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

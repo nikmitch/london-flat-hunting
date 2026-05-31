@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>London Flat Hunter — Project Plan</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8f9fa; color: #212529; line-height: 1.6; }
+    .container { max-width: 940px; margin: 0 auto; padding: 48px 24px; }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #6c757d; margin-bottom: 48px; font-size: 1rem; }
+    h2 { font-size: 1.2rem; font-weight: 700; margin: 40px 0 14px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef; color: #1c1c1e; }
+    h3 { font-size: 0.95rem; font-weight: 600; margin: 20px 0 8px; color: #343a40; }
+    p { margin-bottom: 12px; font-size: 0.92rem; }
+    ul, ol { margin: 8px 0 14px 22px; font-size: 0.92rem; }
+    li { margin-bottom: 5px; }
+    code { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Monaco, monospace; font-size: 0.82em; }
+    pre { background: #1c1c1e; color: #f8f9fa; padding: 18px 20px; border-radius: 8px; overflow-x: auto; margin: 10px 0 18px; font-family: "SF Mono", Monaco, monospace; font-size: 0.82em; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 0.88rem; }
+    th { background: #e9ecef; text-align: left; padding: 9px 13px; font-weight: 600; }
+    td { padding: 9px 13px; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.75em; font-weight: 700; letter-spacing: 0.2px; }
+    .done  { background: #d1fae5; color: #065f46; }
+    .next  { background: #ede9fe; color: #5b21b6; }
+    .later { background: #e0f2fe; color: #0369a1; }
+    .amber { background: #fef3c7; color: #92400e; }
+    .callout { background: #fff; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 0.9rem; }
+    .callout.warn { border-color: #f59e0b; }
+    .section { background: #fff; border: 1px solid #e9ecef; border-radius: 10px; padding: 22px 24px; margin: 14px 0; }
+    .toc { background: #fff; border: 1px solid #e9ecef; border-radius: 10px; padding: 22px 24px; margin-bottom: 40px; }
+    .toc a { color: #3b82f6; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .toc ol { margin-bottom: 0; }
+    .feature-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; font-size: 0.9rem; }
+    .roadmap-item { border: 1px solid #e9ecef; border-radius: 10px; padding: 20px 22px; margin: 14px 0; background: #fff; }
+    .roadmap-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .roadmap-dot { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.82em; color: #fff; flex-shrink: 0; }
+    .roadmap-title { font-weight: 600; font-size: 1rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <a href="index.html" style="color:#3b82f6;text-decoration:none;font-size:0.85rem;display:inline-block;margin-bottom:20px">← Docs home</a>
+  <h1>London Flat Hunter</h1>
+  <p class="subtitle">Living document — last updated 25 May 2026</p>
+
+  <div class="toc">
+    <h3 style="margin-top:0">Contents</h3>
+    <ol>
+      <li><a href="#reqs">Search criteria &amp; filters</a></li>
+      <li><a href="#built">What's built</a></li>
+      <li><a href="#arch">Architecture</a></li>
+      <li><a href="#data">Data model</a></li>
+      <li><a href="#scoring">Scoring algorithm</a></li>
+      <li><a href="#jobs">Background jobs</a></li>
+      <li><a href="#apis">APIs used</a></li>
+      <li><a href="#run">Running the app</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. CRITERIA -->
+  <h2 id="reqs">1. Search criteria &amp; filters</h2>
+  <div class="section">
+    <h3>Hard filters — listings must pass all of these to appear</h3>
+    <table>
+      <tr><th>Filter</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Price</td><td>£2,500–£3,300 pcm</td><td>Weekly prices auto-converted (× 4.3)</td></tr>
+      <tr><td>Bedrooms</td><td>2+</td><td>2-bed allowed but penalised in score</td></tr>
+      <tr><td>Furnished</td><td>Yes</td><td>Rightmove search param</td></tr>
+      <tr><td>Commute</td><td>≤ 30 min to either work address</td><td>Non-bus transit preferred; falls back to transit+bus if TfL can't route without bus</td></tr>
+      <tr><td>Move-in date</td><td>Available within 49 days of today</td><td>Relative offset — slides forward automatically as time passes. Listings with no published date are shown (treated as unknown).</td></tr>
+      <tr><td>Removed</td><td>Hide</td><td>Daily check fetches each listing page and marks removed ones</td></tr>
+    </table>
+
+    <h3>Commute destinations</h3>
+    <table>
+      <tr><th>Destination</th><th>Address</th><th>Departure</th><th>Modes calculated</th></tr>
+      <tr><td>Your work</td><td>71 Central Street, EC1V</td><td>09:00</td><td rowspan="3">Walking · Cycling · Transit (no bus) · Transit (all)</td></tr>
+      <tr><td>LISA</td><td>25 Holywell Row, EC2A 4XE</td><td>07:00</td></tr>
+      <tr><td>King's Cross</td><td>King's Cross station, N1C</td><td>19:00</td></tr>
+    </table>
+
+    <h3>Move-in window (relative to today)</h3>
+    <table>
+      <tr><th>Window</th><th>Offset</th><th>Effect</th></tr>
+      <tr><td>Ideal</td><td>Within 12 days</td><td>No score penalty (equivalent: now → ~5 Jun from 24 May)</td></tr>
+      <tr><td>Acceptable</td><td>12–49 days</td><td>Linear score penalty up to +10 pts</td></tr>
+      <tr><td>Too late</td><td>&gt; 49 days</td><td>Filtered out entirely (equiv: after ~12 Jul from 24 May)</td></tr>
+    </table>
+  </div>
+
+  <!-- 2. WHAT'S BUILT -->
+  <h2 id="built">2. What's built</h2>
+  <div class="section">
+    <h3>Scraper</h3>
+    <ul>
+      <li>Rightmove search via <code>__NEXT_DATA__</code> JSON extraction (Next.js page — no BeautifulSoup needed)</li>
+      <li>Deduplicates by Rightmove listing URL; re-scrapes update <code>date_listed</code> and <code>available_from</code></li>
+      <li>Weekly prices auto-detected via <code>price.frequency == "weekly"</code> and converted to PCM (× 4.3)</li>
+      <li>Uses <code>listingUpdate.listingUpdateDate</code> for "listed date" (not <code>firstVisibleDate</code>, which can be years old for re-listed properties)</li>
+      <li>Move-in date: prefers <code>letAvailableDate</code> from search JSON; daily fallback fetches individual listing pages and extracts from <code>&lt;dt&gt;Let available date&lt;/dt&gt;</code></li>
+    </ul>
+
+    <h3>Travel time calculator</h3>
+    <ul>
+      <li>TfL Journey Planner API: 12 calls per listing (3 destinations × 4 modes)</li>
+      <li>5 listings processed in parallel; all 12 calls within each listing run concurrently</li>
+      <li>Global rate limiter at 7 calls/sec across all threads (safely under 500/min cap)</li>
+      <li>Fallback: if <code>transit_no_bus</code> returns null, uses <code>transit_all</code> for the 30-min threshold check</li>
+      <li>Failed listings (all transit times null — TfL API glitch) have their rows cleared and are automatically retried on the next pass</li>
+    </ul>
+
+    <h3>Dashboard</h3>
+    <ul>
+      <li>Card grid, 30 per page, with pagination</li>
+      <li>Default sort: <strong>Best match</strong> (composite score — see §5)</li>
+      <li>Also sortable by: best commute, cheapest first</li>
+      <li>Status filter: hide rejected / shortlisted only</li>
+      <li>Header stats: <em>N listings match · N commute · N too late · N calculating</em></li>
+      <li>Per-card: photo, price, beds, area, listed-N-days-ago, available-from date, 3×4 travel time table, Shortlist / Reject / View buttons</li>
+      <li>Travel time pills: green (&lt;20 min) / amber (20–30) / red (&gt;30)</li>
+      <li>Green "New" badge on photo for listings ≤ 2 days old</li>
+      <li>Available-from shown in green (ideal window) or amber (acceptable)</li>
+    </ul>
+
+    <h3>Background jobs (APScheduler)</h3>
+    <table>
+      <tr><th>Job</th><th>Frequency</th><th>What it does</th></tr>
+      <tr><td>Scrape + travel times</td><td>Hourly</td><td>Fetches new Rightmove listings, calculates TfL times for any new ones</td></tr>
+      <tr><td>Daily listing check</td><td>Every 24 hrs</td><td>Fetches each active listing page; marks removed ones; fills missing available-from dates</td></tr>
+    </table>
+  </div>
+
+  <!-- 3. ARCHITECTURE -->
+  <h2 id="arch">3. Architecture</h2>
+  <div class="section">
+    <pre>london_flat_hunting/
+├── scraper/
+│   └── rightmove.py     # Rightmove scraper, daily_listing_check(), weekly price conversion
+├── travel/
+│   ├── tfl.py           # TfL Journey Planner API, parallel calls, global rate limiter
+│   └── geocoder.py      # Postcode → lat/lon fallback (postcodes.io)
+├── db/
+│   └── database.py      # SQLite schema, migrations, all queries
+├── web/
+│   ├── app.py           # Flask routes, scoring, filtering, pagination
+│   └── templates/
+│       └── index.html   # Dashboard UI (all CSS/JS inline, no build step)
+├── config.py            # Destinations, thresholds, search params, availability offsets
+├── main.py              # Entry point — starts Flask + background threads
+├── data/
+│   └── listings.db      # SQLite database (gitignored)
+├── requirements.txt
+└── .env                 # TFL_API_KEY (gitignored)</pre>
+
+    <h3>Data flow</h3>
+    <ol>
+      <li>Hourly scraper hits Rightmove search (newest-first, up to 1,000 results), saves new listings to SQLite</li>
+      <li>Travel time worker picks up listings with no times, fires 12 concurrent TfL API calls per listing across 5 parallel workers</li>
+      <li>Daily check fetches individual listing pages: marks removed, fills missing available-from dates</li>
+      <li>Flask serves the dashboard from SQLite — filters, scores, paginates in Python, renders Jinja2 template</li>
+    </ol>
+  </div>
+
+  <!-- 4. DATA MODEL -->
+  <h2 id="data">4. Data model</h2>
+  <div class="section">
+    <h3>listings</h3>
+    <table>
+      <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+      <tr><td>id</td><td>INTEGER PK</td><td></td></tr>
+      <tr><td>url</td><td>TEXT UNIQUE</td><td>Dedup key — <code>rightmove.co.uk/properties/{id}</code></td></tr>
+      <tr><td>rightmove_id</td><td>TEXT</td><td></td></tr>
+      <tr><td>title</td><td>TEXT</td><td>displayAddress from Rightmove</td></tr>
+      <tr><td>price_pcm</td><td>INTEGER</td><td>Always monthly; weekly prices converted on ingest</td></tr>
+      <tr><td>bedrooms</td><td>INTEGER</td><td></td></tr>
+      <tr><td>postcode</td><td>TEXT</td><td>Extracted from displayAddress (outcode level)</td></tr>
+      <tr><td>lat / lon</td><td>REAL</td><td>From Rightmove <code>location</code> field; postcodes.io fallback</td></tr>
+      <tr><td>description</td><td>TEXT</td><td>First 500 chars of summary</td></tr>
+      <tr><td>photo_url</td><td>TEXT</td><td>First listing photo</td></tr>
+      <tr><td>date_listed</td><td>TEXT</td><td>ISO — from <code>listingUpdate.listingUpdateDate</code> (agent's "Added on" date)</td></tr>
+      <tr><td>date_scraped</td><td>TEXT</td><td>ISO — when we first saw it</td></tr>
+      <tr><td>available_from</td><td>TEXT</td><td>ISO — from <code>letAvailableDate</code> or page scrape; null = unknown</td></tr>
+      <tr><td>status</td><td>TEXT</td><td>new / shortlisted / rejected (user action)</td></tr>
+      <tr><td>is_removed</td><td>INTEGER</td><td>1 if Rightmove page shows "removed by agent"</td></tr>
+    </table>
+
+    <h3>travel_times</h3>
+    <table>
+      <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+      <tr><td>listing_id</td><td>INTEGER FK</td><td></td></tr>
+      <tr><td>destination</td><td>TEXT</td><td>your_work / lisa / kings_cross</td></tr>
+      <tr><td>mode</td><td>TEXT</td><td>walking / cycling / transit_no_bus / transit_all</td></tr>
+      <tr><td>departure_time</td><td>TEXT</td><td>0900 / 0700 / 1900</td></tr>
+      <tr><td>duration_minutes</td><td>INTEGER</td><td>Null if TfL returned no route for this mode</td></tr>
+    </table>
+    <p style="font-size:0.85rem;color:#6c757d">UNIQUE constraint on (listing_id, destination, mode). Failed rows (all-null transit) are cleared and retried automatically.</p>
+  </div>
+
+  <!-- 5. SCORING -->
+  <h2 id="scoring">5. Scoring algorithm</h2>
+  <div class="section">
+    <p>Lower score = better. Used for "Best match" sort order.</p>
+    <pre>score = (worst_work_commute × 2)
+      + (price_norm × 8)       # price_norm = (price - 2500) / 800, range 0–1
+      + bed_penalty            # +15 if only 2 bedrooms
+      + avail_penalty          # 0 if ideal window, up to +10 approaching cutoff</pre>
+
+    <h3>Component weights rationale</h3>
+    <table>
+      <tr><th>Component</th><th>Weight</th><th>Equivalent to…</th></tr>
+      <tr><td>Commute (mins)</td><td>×2 per minute</td><td>20-min commute scores 40 pts</td></tr>
+      <tr><td>Price</td><td>×8 across £800 range</td><td>£3,300 vs £2,500 = 8 pts penalty</td></tr>
+      <tr><td>2-bed vs 3-bed</td><td>+15 flat penalty</td><td>≈ 7.5 extra commute minutes</td></tr>
+      <tr><td>Availability</td><td>+0 to +10</td><td>≈ 5 extra commute minutes at worst</td></tr>
+    </table>
+
+    <p><code>worst_work_commute</code> = max(transit_no_bus to work, transit_no_bus to LISA). Falls back to transit_all if TfL can't route without buses.</p>
+    <p>Listings with no calculated times are hidden until TfL calls complete. Listings where commute &gt; 30 min or available_from &gt; 49 days out are filtered before scoring.</p>
+  </div>
+
+  <!-- 6. BACKGROUND JOBS -->
+  <h2 id="jobs">6. Background jobs</h2>
+  <div class="section">
+    <h3>Hourly scrape + travel times</h3>
+    <ol>
+      <li>Fetch Rightmove search pages (newest-first, cap 1,000 results, 2s between pages)</li>
+      <li>Upsert listings — new ones inserted, existing ones get <code>date_listed</code> and <code>available_from</code> refreshed</li>
+      <li>Clear any listings where all transit times are null (TfL glitch) — queues them for retry</li>
+      <li>Run travel time calculator: 5 concurrent workers, 12 parallel TfL calls per listing, global 7 req/sec rate limiter</li>
+    </ol>
+
+    <h3>Daily listing check</h3>
+    <ol>
+      <li>Fetch every active listing's Rightmove page (0.4s sleep between requests)</li>
+      <li>If "removed by agent" banner found → set <code>is_removed = 1</code></li>
+      <li>If <code>available_from</code> is null → extract from <code>&lt;dt&gt;Let available date&lt;/dt&gt;</code> in the HTML</li>
+    </ol>
+    <p style="font-size:0.85rem;color:#6c757d">~1,200 listings × 1.4s ≈ 28 min per daily run. Runs as a daemon thread so the dashboard stays responsive throughout.</p>
+  </div>
+
+  <!-- 7. APIS -->
+  <h2 id="apis">7. APIs used</h2>
+  <div class="section">
+    <table>
+      <tr><th>API</th><th>Cost</th><th>Key required</th><th>Usage</th></tr>
+      <tr><td>TfL Journey Planner</td><td>Free</td><td>Yes — <code>TFL_API_KEY</code> in .env</td><td>Journey times: 12 calls per listing. 500 req/min limit; we use 7/sec.</td></tr>
+      <tr><td>postcodes.io</td><td>Free</td><td>No</td><td>Postcode → lat/lon fallback when Rightmove location is missing</td></tr>
+      <tr><td>Rightmove (scraping)</td><td>Free</td><td>No</td><td><code>__NEXT_DATA__</code> JSON from search pages + individual listing pages for dates</td></tr>
+    </table>
+  </div>
+
+  <!-- 8. RUNNING -->
+  <h2 id="run">8. Running the app</h2>
+  <div class="section">
+    <pre>conda activate london_flat_hunting
+python main.py</pre>
+    <p>Flask starts immediately at <strong>http://localhost:5000</strong>. The scraper and travel time calculator run in background threads — new listings appear as you refresh.</p>
+    <h3>First run behaviour</h3>
+    <ul>
+      <li>Scraper fetches ~1,000 Rightmove listings (~3 min with 2s page delays)</li>
+      <li>Travel time calculator works through them in parallel (~20–25 min for full batch)</li>
+      <li>Dashboard shows qualifying listings as they complete — refreshes show more appearing</li>
+      <li>Daily check runs after 24 hrs to catch removals and fill missing dates</li>
+    </ul>
+    <h3>Config knobs (config.py)</h3>
+    <table>
+      <tr><th>Variable</th><th>Default</th><th>What it changes</th></tr>
+      <tr><td>MAX_COMMUTE_MINUTES</td><td>30</td><td>Hard commute cutoff</td></tr>
+      <tr><td>AVAIL_IDEAL_DAYS</td><td>12</td><td>Days from today = ideal move-in window</td></tr>
+      <tr><td>AVAIL_CUTOFF_DAYS</td><td>49</td><td>Days from today = hard availability cutoff</td></tr>
+      <tr><td>SCRAPE_INTERVAL_MINUTES</td><td>60</td><td>How often to check Rightmove for new listings</td></tr>
+    </table>
+  </div>
+
+  <!-- 9. ROADMAP -->
+  <h2 id="roadmap">9. Roadmap</h2>
+
+  <div class="callout" style="margin-bottom:16px">
+    <strong>Recommended order:</strong> Map (next, ~2 hrs, adds value locally now) → Multi-user voting (~3 hrs) → Cloud deploy (~1 hr). All three work identically once deployed to Railway.
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-header">
+      <div class="roadmap-dot" style="background:#7c3aed">A</div>
+      <div class="roadmap-title">Map view <span class="badge next">Next up</span></div>
+    </div>
+    <p>Interactive map tab alongside the card grid. Leaflet.js (free, CDN, no API key).</p>
+    <h3>Features</h3>
+    <ul>
+      <li>Colour-coded pins (green/amber/red = same commute scale as cards)</li>
+      <li>Click pin → popup: price, beds, worst commute, available-from, View link</li>
+      <li>Layer toggles: all qualifying / shortlisted only / show rejected</li>
+      <li>Marker clustering at city scale (Leaflet.markercluster)</li>
+      <li>Optional: 30-min isochrone overlays around Old Street and LISA using <a href="https://traveltime.com/products/api">TravelTime API</a> (free tier) — stored as GeoJSON, fetched once</li>
+    </ul>
+    <h3>Implementation plan</h3>
+    <ul>
+      <li>New Flask route <code>/map</code> with a full-page Leaflet template</li>
+      <li>New API endpoint <code>/api/listings.json</code> — returns all qualifying listings as GeoJSON features</li>
+      <li>Isochrones (if added): one-time fetch from TravelTime API, stored in a <code>geojson</code> DB table, served from <code>/api/isochrones.json</code></li>
+    </ul>
+    <p><strong>Effort:</strong> ~2 hrs without isochrones, ~3 hrs with.</p>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-header">
+      <div class="roadmap-dot" style="background:#d97706">B</div>
+      <div class="roadmap-title">Multi-user voting &amp; comments <span class="badge amber">After map</span></div>
+    </div>
+    <p>Lightweight collaboration for flatmate decision-making. No passwords — name picker stored in a cookie.</p>
+    <h3>Schema additions</h3>
+    <table>
+      <tr><th>Table</th><th>Columns</th></tr>
+      <tr><td><code>votes</code></td><td>listing_id, user_name, status (shortlisted/rejected/new), created_at</td></tr>
+      <tr><td><code>comments</code></td><td>listing_id, user_name, body, created_at</td></tr>
+    </table>
+    <h3>UI changes</h3>
+    <ul>
+      <li>"Who are you?" modal on first visit — name stored in cookie</li>
+      <li>Shortlist/Reject buttons become per-user; vote summary shown on each card: <em>Nik ✓ · Sam ? · Alex ✗</em></li>
+      <li>Filter: "only listings everyone shortlisted"</li>
+      <li>Collapsible comment thread under each card</li>
+    </ul>
+    <p><strong>Effort:</strong> ~3 hrs.</p>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-header">
+      <div class="roadmap-dot" style="background:#059669">C</div>
+      <div class="roadmap-title">Cloud deployment (Railway) <span class="badge later">After voting</span></div>
+    </div>
+    <p>Deploy to <a href="https://railway.app">Railway</a>: ~$5/month, persistent SQLite volume, one-command deploy.</p>
+    <h3>Steps</h3>
+    <ol>
+      <li>Add <code>Procfile</code>: <code>web: python main.py</code></li>
+      <li>Add <code>runtime.txt</code>: <code>python-3.12</code></li>
+      <li>Push repo to GitHub, connect to Railway</li>
+      <li>Set <code>TFL_API_KEY</code> env var in Railway dashboard</li>
+      <li>Share URL with flatmates</li>
+    </ol>
+    <div class="callout warn" style="margin-top:12px">
+      <strong>Scraping from cloud IPs:</strong> Rightmove sometimes blocks cloud provider IP ranges. Mitigation: run the scraper locally (Mac) and push to a <code>POST /ingest</code> endpoint on Railway — only the dashboard and travel time calls live in the cloud.
+    </div>
+    <div class="callout" style="margin-top:10px">
+      <strong>SQLite concurrency:</strong> Fine for 3–4 concurrent users. If write-locking becomes an issue, Railway has a one-click Postgres add-on; the code change is a small swap.
+    </div>
+    <p><strong>Effort:</strong> ~1 hr.</p>
+  </div>
+
+  <div class="section" style="margin-top:20px">
+    <h3>Further future ideas</h3>
+    <ul>
+      <li><strong>Zoopla integration</strong> — second scraping source, same pipeline</li>
+      <li><strong>Telegram/email alerts</strong> — push notification when a new listing passes all filters</li>
+      <li><strong>Price history</strong> — track when an agent reduces the asking rent</li>
+      <li><strong>Google Maps Routes API</strong> — drop-in for TfL if faster bulk recalculation ever needed (~$5–6 one-time; 4 min vs 26 min for initial bulk)</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

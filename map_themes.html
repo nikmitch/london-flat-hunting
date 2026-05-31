@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Theme Options</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #111; color: #fff; padding: 32px 24px; }
+    h1 { font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 0.88rem; margin-bottom: 36px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 32px; }
+
+    .theme { background: #1a1a1a; border-radius: 14px; overflow: hidden; border: 1px solid #2a2a2a; }
+    .theme-header { padding: 16px 18px 12px; }
+    .theme-name { font-size: 1rem; font-weight: 700; margin-bottom: 3px; }
+    .theme-desc { font-size: 0.8rem; color: #888; line-height: 1.4; }
+    .map-wrap { position: relative; height: 320px; }
+    .map-wrap .leaflet-container { height: 100%; width: 100%; }
+
+    /* shared marker base */
+    .dm { pointer-events: none; }
+  </style>
+</head>
+<body>
+  <h1>Map Theme Options</h1>
+  <p class="subtitle">7 design directions — options 1 & 2 unchanged, 3–7 are new fabulous additions. Pick one (or mix elements) and I'll implement it.</p>
+
+  <div class="grid">
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">1 — Dark Refined</div>
+        <div class="theme-desc">Current dark map, cleaner pin shapes. Teardrop pins with white dot. Destination labels as floating pills — lighter weight, no heavy box.</div>
+      </div>
+      <div class="map-wrap" id="m1"></div>
+    </div>
+
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">2 — Light & Minimal</div>
+        <div class="theme-desc">White Carto base. Deep navy pins with a coloured ring for commute status. Destination markers as a coloured circle + floating text underneath.</div>
+      </div>
+      <div class="map-wrap" id="m2"></div>
+    </div>
+
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">3 — Cotton Candy 🍬</div>
+        <div class="theme-desc">Warm beige Carto base. Heart-shaped pins in hot pink / lilac / coral. Shortlisted = golden crown. Destination labels in glossy rose-gold pills.</div>
+      </div>
+      <div class="map-wrap" id="m3"></div>
+    </div>
+
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">4 — Purple Reign 💜</div>
+        <div class="theme-desc">Dark map tinted purple. Amethyst / violet / magenta palette. Regular pins are sparkle stars. Shortlisted = double star burst. Gold destination labels with violet glow.</div>
+      </div>
+      <div class="map-wrap" id="m4"></div>
+    </div>
+
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">5 — Boudoir Glam 💎</div>
+        <div class="theme-desc">Warm cream Carto. Pins are diamonds in deep pink / mauve / bordeaux. Shortlisted = jewelled diamond with sparkle. Destination labels in champagne with a diamond bullet.</div>
+      </div>
+      <div class="map-wrap" id="m5"></div>
+    </div>
+
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">6 — Tropical Maximalist 🌸</div>
+        <div class="theme-desc">Light Carto, saturated. Pins are 6-petal flowers: fuchsia / orchid / tangerine. Shortlisted = hibiscus bloom (bigger, multi-petal). Destination labels in bold chartreuse pills.</div>
+      </div>
+      <div class="map-wrap" id="m6"></div>
+    </div>
+
+    <div class="theme">
+      <div class="theme-header">
+        <div class="theme-name">7 — Disco Opulence ✨</div>
+        <div class="theme-desc">Dark map. Pins are iridescent ovals shifting pink → purple → gold. Shortlisted = 8-pointed starburst. Destination labels in glossy white with rainbow underline. Extra sparkle.</div>
+      </div>
+      <div class="map-wrap" id="m7"></div>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Shared data ─────────────────────────────────────────────────────────────
+const CENTER = [51.528, -0.088];
+const ZOOM   = 13;
+const NO_INTERACT = { dragging:false, scrollWheelZoom:false, zoomControl:false, doubleClickZoom:false, touchZoom:false, keyboard:false, boxZoom:false };
+
+// Sample listing positions [lat, lon, commute_minutes, shortlisted]
+const LISTINGS = [
+  [51.5395, -0.103,  18, false],   // Islington — green
+  [51.5450, -0.063,  22, false],   // Hackney — amber
+  [51.5290, -0.081,  15, true ],   // Hoxton — green, shortlisted
+  [51.5330, -0.106,  20, false],   // Angel — amber
+  [51.5255, -0.055,  25, false],   // Bethnal Green — amber
+  [51.5180, -0.073,  28, false],   // Whitechapel — amber
+  [51.5480, -0.088,  19, true ],   // Holloway — green, shortlisted
+  [51.5100, -0.100,  26, false],   // Southwark — amber
+];
+
+// Destinations
+const DESTS = [
+  { lat: 51.5254, lon: -0.0907, label: 'MATS' },
+  { lat: 51.5210, lon: -0.0796, label: 'LISA' },
+  { lat: 51.5308, lon: -0.1238, label: 'KX'   },
+];
+
+function commuteColor(mins, palette) {
+  if (mins <= 20) return palette.good;
+  if (mins <= 30) return palette.ok;
+  return palette.bad;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 1 — Dark Refined
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m1', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+
+  const pal = { good:'#00c97a', ok:'#f5a623', bad:'#e74c3c' };
+
+  LISTINGS.forEach(([lat, lon, mins, star]) => {
+    const c = commuteColor(mins, pal);
+    const html = star
+      ? `<svg width="26" height="26" viewBox="0 0 26 26"><polygon points="13,2 16,9.5 24,10.5 18.5,16 20.5,24 13,20 5.5,24 7.5,16 2,10.5 10,9.5" fill="${c}" stroke="rgba(0,0,0,0.35)" stroke-width="1.5" stroke-linejoin="round"/></svg>`
+      : `<svg width="20" height="26" viewBox="0 0 20 26"><path d="M10 0C4.477 0 0 4.477 0 10c0 6.627 10 16 10 16s10-9.373 10-16C20 4.477 15.523 0 10 0z" fill="${c}" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/><circle cx="10" cy="10" r="3.5" fill="rgba(255,255,255,0.9)"/></svg>`;
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize: star?[26,26]:[20,26], iconAnchor: star?[13,26]:[10,26] }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="background:rgba(30,30,35,0.88);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.8rem;font-weight:700;border:1px solid rgba(255,255,255,0.15);white-space:nowrap;backdrop-filter:blur(4px)">${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 2 — Light & Minimal
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m2', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+
+  const pal = { good:'#0f9960', ok:'#d9822b', bad:'#db3737' };
+
+  LISTINGS.forEach(([lat, lon, mins, star]) => {
+    const c = commuteColor(mins, pal);
+    const html = star
+      ? `<svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="${c}" stroke-width="2.5"/>` +
+        `<polygon points="14,5 16.5,11 23,11.5 18,16 19.5,23 14,19.5 8.5,23 10,16 5,11.5 11.5,11" fill="${c}"/></svg>`
+      : `<svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="10" fill="white" stroke="${c}" stroke-width="2.5"/><circle cx="11" cy="11" r="5" fill="${c}"/></svg>`;
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-14] }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="background:#1a2e5a;color:white;padding:5px 12px;border-radius:20px;font-size:0.82rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(26,46,90,0.4)">${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 3 — Cotton Candy 🍬
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m3', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  // Warm beige: light Carto with a sepia CSS filter applied to the tile layer
+  const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom:19 });
+  tileLayer.addTo(map);
+  // Warm up the map tiles with a CSS filter after they load
+  map.on('load', () => {
+    document.querySelectorAll('#m3 .leaflet-tile-pane').forEach(el => {
+      el.style.filter = 'sepia(40%) saturate(0.7) brightness(1.05)';
+    });
+  });
+  setTimeout(() => {
+    document.querySelectorAll('#m3 .leaflet-tile-pane').forEach(el => {
+      el.style.filter = 'sepia(40%) saturate(0.7) brightness(1.05)';
+    });
+  }, 500);
+
+  const pal = { good:'#ff6eb4', ok:'#c084fc', bad:'#fb7185' };
+
+  // Heart SVG
+  const heart = (c, glow='') =>
+    `<svg width="26" height="24" viewBox="0 0 26 24" style="filter:${glow}">
+       <path d="M13 22S2 14 2 7.5C2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2C19.58 2 22 4.42 22 7.5c0 6.5-11 14.5-9 14.5z"
+             fill="${c}" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/>
+       <path d="M13 22S2 14 2 7.5C2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2C19.58 2 22 4.42 22 7.5c0 6.5-9 14.5-9 14.5z"
+             fill="${c}"/>
+     </svg>`;
+
+  // Crown SVG for shortlisted
+  const crown = (c) =>
+    `<svg width="30" height="26" viewBox="0 0 30 26">
+       <path d="M2 22 L2 10 L8 16 L15 3 L22 16 L28 10 L28 22 Z" fill="${c}" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linejoin="round"/>
+       <rect x="2" y="20" width="26" height="4" rx="2" fill="${c}"/>
+       <circle cx="15" cy="5"  r="2.5" fill="#fde68a"/>
+       <circle cx="4"  cy="12" r="2"   fill="#fde68a"/>
+       <circle cx="26" cy="12" r="2"   fill="#fde68a"/>
+     </svg>`;
+
+  LISTINGS.forEach(([lat, lon, mins, isCrown]) => {
+    const c = commuteColor(mins, pal);
+    const html = isCrown ? crown(c) : heart(c, `drop-shadow(0 2px 4px ${c}88)`);
+    const sz = isCrown ? [30,26] : [26,24];
+    const anchor = isCrown ? [15,26] : [13,24];
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize:sz, iconAnchor:anchor }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="background:linear-gradient(135deg,#f9a8d4,#e879f9);color:white;padding:5px 12px;border-radius:20px;font-size:0.82rem;font-weight:800;white-space:nowrap;box-shadow:0 3px 12px rgba(232,121,249,0.5);letter-spacing:0.5px">${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 4 — Purple Reign 💜
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m4', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+  // Purple overlay
+  setTimeout(() => {
+    document.querySelectorAll('#m4 .leaflet-tile-pane').forEach(el => {
+      el.style.filter = 'hue-rotate(200deg) saturate(1.4) brightness(0.7)';
+    });
+  }, 500);
+
+  const pal = { good:'#a855f7', ok:'#ec4899', bad:'#f43f5e' };
+
+  // 6-pointed sparkle star
+  const sparkle = (c, big=false) => {
+    const s = big ? 32 : 24;
+    const g = `drop-shadow(0 0 6px ${c}) drop-shadow(0 0 12px ${c}99)`;
+    return `<svg width="${s}" height="${s}" viewBox="0 0 32 32" style="filter:${g}">
+      <polygon points="16,2 19,12 29,12 21,18.5 24,29 16,23 8,29 11,18.5 3,12 13,12" fill="${c}" stroke="#fde68a" stroke-width="${big?1.5:1}" stroke-linejoin="round"/>
+      ${big ? `<circle cx="16" cy="16" r="4" fill="#fde68a" opacity="0.9"/>` : ''}
+    </svg>`;
+  };
+
+  // Double starburst for shortlisted
+  const starburst = (c) =>
+    `<svg width="34" height="34" viewBox="0 0 34 34" style="filter:drop-shadow(0 0 8px ${c}) drop-shadow(0 0 16px ${c}88)">
+       <polygon points="17,2 19.5,10 28,10 21.5,15.5 24,24 17,19.5 10,24 12.5,15.5 6,10 14.5,10" fill="${c}" stroke="#fde68a" stroke-width="1"/>
+       <polygon points="17,6 18.5,11 24,11 19.5,14 21,19.5 17,16.5 13,19.5 14.5,14 10,11 15.5,11" fill="#fde68a" opacity="0.7"/>
+     </svg>`;
+
+  LISTINGS.forEach(([lat, lon, mins, isBurst]) => {
+    const c = commuteColor(mins, pal);
+    const html = isBurst ? starburst(c) : sparkle(c);
+    const sz = isBurst ? [34,34] : [24,24];
+    const anchor = isBurst ? [17,17] : [12,12];
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize:sz, iconAnchor:anchor }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fde68a;padding:5px 12px;border-radius:5px;font-size:0.82rem;font-weight:800;white-space:nowrap;box-shadow:0 3px 14px rgba(168,85,247,0.7);letter-spacing:1px;text-shadow:0 0 8px #fde68a">${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 5 — Boudoir Glam 💎
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m5', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+  setTimeout(() => {
+    document.querySelectorAll('#m5 .leaflet-tile-pane').forEach(el => {
+      el.style.filter = 'sepia(55%) saturate(0.5) brightness(1.1) contrast(0.9)';
+    });
+  }, 500);
+
+  const pal = { good:'#be185d', ok:'#9333ea', bad:'#b91c1c' };
+
+  // Diamond pin
+  const diamond = (c, jewelled=false) => {
+    const glow = `drop-shadow(0 2px 6px ${c}99)`;
+    return jewelled
+      ? `<svg width="30" height="30" viewBox="0 0 30 30" style="filter:${glow}">
+           <polygon points="15,1 29,12 15,29 1,12" fill="${c}" stroke="#f9d8e8" stroke-width="2"/>
+           <polygon points="15,6 24,12 15,24 6,12" fill="white" opacity="0.25"/>
+           <circle cx="15" cy="13" r="3" fill="#fce7f3" opacity="0.8"/>
+           <polygon points="15,1 8,12 15,8 22,12" fill="white" opacity="0.4"/>
+         </svg>`
+      : `<svg width="22" height="28" viewBox="0 0 22 28" style="filter:${glow}">
+           <polygon points="11,1 21,10 11,27 1,10" fill="${c}" stroke="#f9d8e8" stroke-width="1.5"/>
+           <polygon points="11,5 17,10 11,22 5,10" fill="white" opacity="0.2"/>
+           <polygon points="11,1 5,10 11,7 17,10" fill="white" opacity="0.35"/>
+         </svg>`;
+  };
+
+  LISTINGS.forEach(([lat, lon, mins, isJewelled]) => {
+    const c = commuteColor(mins, pal);
+    const html = diamond(c, isJewelled);
+    const sz = isJewelled ? [30,30] : [22,28];
+    const anchor = isJewelled ? [15,15] : [11,27];
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize:sz, iconAnchor:anchor }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="background:#f9f0f3;color:#9d174d;padding:5px 12px;border-radius:4px;font-size:0.82rem;font-weight:800;white-space:nowrap;border:1.5px solid #f9a8d4;box-shadow:0 2px 10px rgba(190,24,93,0.25);letter-spacing:0.5px">◆ ${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 6 — Tropical Maximalist 🌸
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m6', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+
+  const pal = { good:'#e040fb', ok:'#ff6d00', bad:'#f50057' };
+
+  // 6-petal flower
+  const flower = (c, big=false) => {
+    const s = big ? 32 : 24;
+    const r1 = big ? 10 : 7, r2 = big ? 5 : 3.5, cx = s/2;
+    const petals = [0,60,120,180,240,300].map(deg => {
+      const a = deg * Math.PI / 180;
+      const px = cx + r1 * Math.sin(a), py = cx - r1 * Math.cos(a);
+      return `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${r2}" ry="${big?6:4.5}" transform="rotate(${deg},${px.toFixed(1)},${py.toFixed(1)})" fill="${c}" opacity="0.92"/>`;
+    }).join('');
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" style="filter:drop-shadow(0 2px 5px ${c}88)">
+      ${petals}
+      <circle cx="${cx}" cy="${cx}" r="${big?6:4.5}" fill="#fef08a" stroke="white" stroke-width="1.5"/>
+      ${big ? `<circle cx="${cx}" cy="${cx}" r="3" fill="#f59e0b"/>` : ''}
+    </svg>`;
+  };
+
+  LISTINGS.forEach(([lat, lon, mins, isBig]) => {
+    const c = commuteColor(mins, pal);
+    const html = flower(c, isBig);
+    const s = isBig ? 32 : 24;
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize:[s,s], iconAnchor:[s/2,s/2] }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="background:linear-gradient(135deg,#e040fb,#ff6d00);color:white;padding:5px 12px;border-radius:20px;font-size:0.82rem;font-weight:900;white-space:nowrap;box-shadow:0 3px 12px rgba(224,64,251,0.5);letter-spacing:0.5px">✿ ${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME 7 — Disco Opulence ✨
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  const map = L.map('m7', { ...NO_INTERACT }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+
+  // Iridescent oval — colour shifts by commute
+  const oval = (c1, c2, mins) => {
+    const glow = `drop-shadow(0 0 7px ${c1}) drop-shadow(0 0 14px ${c2}88)`;
+    return `<svg width="24" height="30" viewBox="0 0 24 30" style="filter:${glow}">
+      <defs>
+        <radialGradient id="g${mins}" cx="35%" cy="35%">
+          <stop offset="0%"   stop-color="white"  stop-opacity="0.9"/>
+          <stop offset="40%"  stop-color="${c1}"/>
+          <stop offset="100%" stop-color="${c2}"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="12" cy="15" rx="11" ry="14" fill="url(#g${mins})" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+    </svg>`;
+  };
+
+  // 8-pointed starburst for shortlisted
+  const burst8 = (c1, c2) => {
+    const g = `drop-shadow(0 0 8px ${c1}) drop-shadow(0 0 18px ${c2}88)`;
+    return `<svg width="34" height="34" viewBox="0 0 34 34" style="filter:${g}">
+      <defs>
+        <radialGradient id="gb">
+          <stop offset="0%" stop-color="white" stop-opacity="0.95"/>
+          <stop offset="50%" stop-color="${c1}"/>
+          <stop offset="100%" stop-color="${c2}"/>
+        </radialGradient>
+      </defs>
+      <polygon points="17,2 19.5,9.5 27,9.5 21.5,14.5 24,22 17,18 10,22 12.5,14.5 7,9.5 14.5,9.5" fill="url(#gb)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <polygon points="17,5 20,12 27,12 21,16.5 23,23 17,19.5 11,23 13,16.5 7,12 14,12" fill="rgba(255,255,255,0.15)"/>
+      <circle cx="17" cy="13" r="3.5" fill="rgba(255,255,255,0.8)"/>
+    </svg>`;
+  };
+
+  const palettes = [
+    ['#f472b6','#818cf8'], // pink→indigo
+    ['#fb923c','#e879f9'], // orange→pink
+    ['#34d399','#60a5fa'], // emerald→blue
+    ['#fbbf24','#f472b6'], // gold→pink
+    ['#a78bfa','#fb7185'], // violet→rose
+    ['#e879f9','#fbbf24'], // fuchsia→gold
+    ['#f9a8d4','#c084fc'], // blush→purple
+    ['#86efac','#fb923c'], // mint→orange
+  ];
+
+  LISTINGS.forEach(([lat, lon, mins, isBurst], i) => {
+    const [c1, c2] = palettes[i % palettes.length];
+    const html = isBurst ? burst8(c1, c2) : oval(c1, c2, mins);
+    const sz = isBurst ? [34,34] : [24,30];
+    const anchor = isBurst ? [17,17] : [12,15];
+    L.marker([lat, lon], { icon: L.divIcon({ html, className:'', iconSize:sz, iconAnchor:anchor }) }).addTo(map);
+  });
+
+  DESTS.forEach(d => {
+    L.marker([d.lat, d.lon], { icon: L.divIcon({
+      html: `<div style="color:white;padding:5px 12px;font-size:0.9rem;font-weight:900;white-space:nowrap;letter-spacing:1.5px;text-shadow:0 0 8px #f472b6,0 0 16px #818cf8,0 0 24px #f472b6;filter:drop-shadow(0 0 4px #818cf8)">✦ ${d.label}</div>`,
+      className:'', iconSize:[1,1], iconAnchor:[0,0]
+    }), zIndexOffset:1000 }).addTo(map);
+  });
+})();
+</script>
+</body>
+</html>
