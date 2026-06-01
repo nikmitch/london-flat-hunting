@@ -32,10 +32,12 @@ python main.py
 - **Scraper:** Rightmove `__NEXT_DATA__` JSON extraction, hourly via APScheduler
 - **Travel times:** TfL Journey Planner API, 12 calls/listing (3 dests × 4 modes), 5 parallel workers, global 7 req/sec rate limiter. Env var: `TFL_API_KEY` in `.env`
 - **Daily check:** fetches each listing page to mark removed listings + fill missing available-from dates
-- **Dashboard (`/`):** card grid, 30/page, best-match sort (commute×2 + price + bed penalty + avail penalty), pagination, shortlist/reject
-- **Map (`/map`):** Leaflet.js, theme 2 (light) default, theme 7 (disco) toggle, rich popups with photos + commute table, star icons for shortlisted
-- **Database:** SQLite at `data/listings.db`, tables: `listings`, `travel_times`
+- **Dashboard (`/`):** card grid, 30/page, best-match sort, pagination, per-user shortlist/reject, vote summary row per card, collapsible comment threads, name picker modal
+- **Map (`/map`):** Leaflet.js, theme 2 (light) default, theme 7 (disco) toggle, rich popups with photos + commute table + vote summary + last 2 comments, star icons for shortlisted
+- **Multi-user voting:** `votes` + `comments` tables. `FLATMATES = ["Nik", "Jennifer", "Luis", "Demelza"]` in `config.py`. Endpoints: `POST /vote/<id>`, `POST /comment/<id>`, `GET /comments/<id>`
+- **Database:** SQLite at `data/listings.db`, tables: `listings`, `travel_times`, `votes`, `comments`
 - **Conda env:** `london_flat_hunting` (Python 3.12)
+- **GitHub:** `https://github.com/nikmitch/london-flat-hunting` (private)
 
 ## Project structure
 
@@ -60,8 +62,9 @@ london_flat_hunting/
 
 See `docs/next-steps.html` for full detail. Short version:
 
-1. **Multi-user comments + voting** — `votes` and `comments` tables, name picker (no auth), per-person shortlist/reject, comment threads on cards and map popups
-2. **Cloud deployment** — Railway (~$5/mo), `Procfile` + `git push`. Scraper may need to stay local (Rightmove blocks cloud IPs); dashboard + TfL calls are fine on cloud
+1. ✅ **Multi-user comments + voting** — done
+2. ⚡ **Cloud deployment (Railway)** — in progress. Git pushed, project created, `TFL_API_KEY` set. Still needed: add Volume (mount `/app/data`), then `railway login` + upload DB. Railway CLI already installed via brew.
+3. **Backlog:** Zoopla integration, Telegram/email alerts for new listings, price history tracking
 
 ## Key architectural decisions
 

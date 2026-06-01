@@ -32,7 +32,7 @@
 <div class="container">
   <a class="back" href="index.html">← Docs home</a>
   <h1>What We've Built</h1>
-  <p class="subtitle">Complete feature inventory as of May 2026</p>
+  <p class="subtitle">Complete feature inventory as of June 2026</p>
 
   <h2>Scraper</h2>
   <div class="section">
@@ -71,11 +71,15 @@
       <li>Card grid, 30 per page with pagination</li>
       <li>Default sort: <strong>Best match</strong> (composite score — see Scoring below)</li>
       <li>Also sortable by: best commute, cheapest first</li>
-      <li>Status filter: hide rejected / shortlisted only</li>
+      <li>Status filter: hide rejected / my shortlist / everyone shortlisted (consensus)</li>
       <li>Header stats: <em>N listings match · N commute · N too late · N calculating</em></li>
       <li>Per-card: photo, price/beds/area, listed-N-days-ago, available-from (green if ideal window, amber if later), full 3×4 travel time table, Shortlist / Reject / View buttons</li>
       <li>Travel time pills: green (&lt;20 min) / amber (20–30) / red (&gt;30)</li>
       <li>Green "New" badge on photo for listings listed ≤ 2 days ago</li>
+      <li><strong>Vote summary row</strong> on each card — shows each flatmate's status (✓ shortlisted / ✗ rejected / · undecided)</li>
+      <li><strong>Collapsible comment thread</strong> on each card — shows existing comments, text input to add one</li>
+      <li><strong>Name picker modal</strong> on first visit — stores name in localStorage + cookie (no login required)</li>
+      <li>Shortlist/reject buttons are per-user; card border reflects your own vote</li>
     </ul>
   </div>
 
@@ -85,9 +89,9 @@
       <li>Leaflet.js, no API key, all JS from CDN</li>
       <li><strong>Theme 2 (default):</strong> light Carto tiles, circle pins with coloured ring, star-in-circle for shortlisted, navy pill destination labels</li>
       <li><strong>Theme 7 (Disco ✦):</strong> dark no-labels tiles, iridescent oval pins with unique gradient per listing, 8-pointed starburst for shortlisted, glowing text destination labels. Toggle via "✦ Disco" button in nav.</li>
-      <li>Click any pin → rich popup: photo, price, beds, available-from, full 3×4 commute table, Shortlist/Reject/View buttons</li>
+      <li>Click any pin → rich popup: photo, price, beds, available-from, full 3×4 commute table, vote summary, last 2 comments, Shortlist/Reject/View buttons</li>
       <li>Shortlisting from popup immediately swaps the pin to a star (no reload)</li>
-      <li>Layer toggles: all qualifying / shortlisted only / include rejected</li>
+      <li>Layer toggles: all qualifying / my shortlist / include rejected</li>
       <li>Marker clustering — zooms out to numbered bubbles</li>
       <li>Destination markers (MATS, LISA, KX) with tooltip showing full address</li>
     </ul>
@@ -141,12 +145,18 @@
       <tr><td><code>lat / lon</code></td><td>From Rightmove's <code>location</code> field; postcodes.io fallback</td></tr>
       <tr><td><code>date_listed</code></td><td>From <code>listingUpdate.listingUpdateDate</code> (agent's "Added on" date)</td></tr>
       <tr><td><code>available_from</code></td><td>From <code>letAvailableDate</code> or daily page scrape; null = unknown</td></tr>
-      <tr><td><code>status</code></td><td>new / shortlisted / rejected</td></tr>
+      <tr><td><code>status</code></td><td>new / shortlisted / rejected — legacy global field; per-user votes now in <code>votes</code> table</td></tr>
       <tr><td><code>is_removed</code></td><td>1 if Rightmove page shows "removed by agent"</td></tr>
     </table>
 
     <h3>travel_times</h3>
     <p>One row per (listing_id, destination, mode) — 12 rows per listing. <code>duration_minutes</code> is null if TfL returned no route.</p>
+
+    <h3>votes</h3>
+    <p>One row per (listing_id, user_name). Primary key is the pair. <code>status</code>: shortlisted / rejected / new. Updated via <code>POST /vote/&lt;id&gt;</code>.</p>
+
+    <h3>comments</h3>
+    <p>Free-text comments. Multiple per person per listing. Added via <code>POST /comment/&lt;id&gt;</code>. Read via <code>GET /comments/&lt;id&gt;</code>.</p>
   </div>
 
   <h2>APIs used</h2>
