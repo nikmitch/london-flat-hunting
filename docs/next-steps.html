@@ -37,10 +37,10 @@
 <div class="container">
   <a class="back" href="index.html">← Docs home</a>
   <h1>Next Steps</h1>
-  <p class="subtitle">Status as of 1 June 2026</p>
+  <p class="subtitle">Status as of 5 June 2026</p>
 
   <div class="order-note" style="border-color:#10b981;background:#f0fdf4">
-    <strong>✓ Comments &amp; voting — done.</strong> Multi-user voting and comments are fully built and running locally. Railway deploy is in progress — volume and DB upload still needed (see below).
+    <strong>✓ Comments &amp; voting — done. ✓ Railway deploy — done.</strong> Multi-user voting and comments are fully built, and the app is live on Railway with the volume mounted and the database uploaded. Remaining items are the further-out backlog below.
   </div>
 
   <!-- ── TRACK 1: COMMENTS — DONE ── -->
@@ -57,7 +57,7 @@
   </div>
 
   <!-- ── TRACK 2: CLOUD ── -->
-  <h2>2 — Cloud deployment (Railway) <span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72em;font-weight:700;background:#fef9c3;color:#854d0e;margin-left:8px">⚡ In progress</span></h2>
+  <h2>2 — Cloud deployment (Railway) <span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72em;font-weight:700;background:#d1fae5;color:#065f46;margin-left:8px">✓ Done</span></h2>
 
   <div class="section">
     <p>Deploy to <a href="https://railway.app">Railway</a>: Python/Flask native, persistent volume for SQLite, ~$5/month, URL assigned automatically.</p>
@@ -67,9 +67,9 @@
     <div class="step"><span class="step-num" style="background:#10b981">✓</span><div class="step-body">Railway project created — deployed from GitHub, auto-deploys on push</div></div>
     <div class="step"><span class="step-num" style="background:#10b981">✓</span><div class="step-body"><code>Procfile</code> added: <code>web: python main.py</code>. Port reads from <code>$PORT</code> env var.</div></div>
     <div class="step"><span class="step-num" style="background:#10b981">✓</span><div class="step-body"><code>TFL_API_KEY</code> added to Railway Variables</div></div>
-    <div class="step"><span class="step-num">5</span><div class="step-body"><strong>Add a Volume</strong> in Railway (project canvas → "+" → Volume, mount path <code>/app/data</code>) and attach it to the web service. Railway CLI is installed: <code>railway</code>.</div></div>
-    <div class="step"><span class="step-num">6</span><div class="step-body"><strong>Upload the DB</strong> — run <code>railway login</code> then upload:<br><code>railway volume cp data/listings.db /app/data/listings.db</code></div></div>
-    <div class="step"><span class="step-num">7</span><div class="step-body">Share the Railway URL with Jennifer, Luis, and Demelza. URL visible in Railway dashboard (project → Settings → Domains).</div></div>
+    <div class="step"><span class="step-num" style="background:#10b981">✓</span><div class="step-body"><strong>Volume added</strong> in Railway (mount path <code>/app/data</code>), attached to the web service.</div></div>
+    <div class="step"><span class="step-num" style="background:#10b981">✓</span><div class="step-body"><strong>DB uploaded</strong> to the volume via <code>railway volume cp data/listings.db /app/data/listings.db</code>.</div></div>
+    <div class="step"><span class="step-num" style="background:#10b981">✓</span><div class="step-body"><strong>URL shared</strong> with Jennifer, Luis, and Demelza. The app is live and working.</div></div>
 
     <h3>Uploading the existing DB</h3>
     <p>Railway CLI is already installed (<code>brew install railway</code> done). Just log in and upload:</p>

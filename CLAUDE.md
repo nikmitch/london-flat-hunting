@@ -63,8 +63,12 @@ london_flat_hunting/
 See `docs/next-steps.html` for full detail. Short version:
 
 1. ✅ **Multi-user comments + voting** — done
-2. ⚡ **Cloud deployment (Railway)** — in progress. Git pushed, project created, `TFL_API_KEY` set. Still needed: add Volume (mount `/app/data`), then `railway login` + upload DB. Railway CLI already installed via brew.
+2. ✅ **Cloud deployment (Railway)** — done. Live with volume mounted (`/app/data`) and DB uploaded. `TFL_API_KEY` set, auto-deploys on push.
 3. **Backlog:** Zoopla integration, Telegram/email alerts for new listings, price history tracking
+
+## Forking for your own search
+
+See `README.md` for a full guide to adapting this app for a different commute, price range, search area, and group of people. Key files: `config.py` (all tuneable parameters), `.env` (TfL API key). Includes both a localhost-only setup and Railway cloud deployment.
 
 ## Key architectural decisions
 
