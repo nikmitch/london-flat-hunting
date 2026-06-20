@@ -31,7 +31,9 @@ def init_db(owner_name: str = None):
                 date_scraped  TEXT,
                 status           TEXT DEFAULT 'new',
                 is_removed       INTEGER DEFAULT 0,
-                available_from   TEXT
+                available_from   TEXT,
+                has_home_office  INTEGER DEFAULT 0,
+                enriched         INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS travel_times (
@@ -69,6 +71,10 @@ def init_db(owner_name: str = None):
             conn.execute("ALTER TABLE listings ADD COLUMN is_removed INTEGER DEFAULT 0")
         if "available_from" not in cols:
             conn.execute("ALTER TABLE listings ADD COLUMN available_from TEXT")
+        if "has_home_office" not in cols:
+            conn.execute("ALTER TABLE listings ADD COLUMN has_home_office INTEGER DEFAULT 0")
+        if "enriched" not in cols:
+            conn.execute("ALTER TABLE listings ADD COLUMN enriched INTEGER DEFAULT 0")
         # Fix weekly prices that were stored without conversion (all are < 1500 in our search range)
         conn.execute(
             "UPDATE listings SET price_pcm = ROUND(price_pcm * 4.3) WHERE price_pcm < 1500"
@@ -91,20 +97,34 @@ def upsert_listing(data: dict) -> tuple[int, bool]:
             "SELECT id FROM listings WHERE url = ?", (data["url"],)
         ).fetchone()
         if existing:
-            # Refresh the date in case the listing was re-listed since we first saw it
+            # Refresh fields that can change or improve since we first saw it:
+            # the re-list date, availability, and the home-office detection
+            # (now derived from key features, so re-evaluate existing rows too).
             conn.execute(
-                "UPDATE listings SET date_listed = :date_listed, available_from = :available_from WHERE id = :id",
-                {"date_listed": data["date_listed"], "available_from": data.get("available_from"), "id": existing["id"]},
+                """UPDATE listings SET
+                       date_listed = :date_listed,
+                       available_from = :available_from,
+                       description = :description,
+                       has_home_office = :has_home_office
+                   WHERE id = :id""",
+                {
+                    "date_listed": data["date_listed"],
+                    "available_from": data.get("available_from"),
+                    "description": data.get("description"),
+                    "has_home_office": data.get("has_home_office", 0),
+                    "id": existing["id"],
+                },
             )
             return existing["id"], False
         cursor = conn.execute(
             """INSERT INTO listings
                (url, rightmove_id, title, price_pcm, bedrooms, postcode,
-                lat, lon, description, photo_url, date_listed, date_scraped, available_from)
+                lat, lon, description, photo_url, date_listed, date_scraped,
+                available_from, has_home_office)
                VALUES
                (:url, :rightmove_id, :title, :price_pcm, :bedrooms, :postcode,
                 :lat, :lon, :description, :photo_url, :date_listed, :date_scraped,
-                :available_from)""",
+                :available_from, :has_home_office)""",
             data,
         )
         return cursor.lastrowid, True

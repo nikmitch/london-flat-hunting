@@ -5,8 +5,23 @@ import time
 import requests
 from datetime import datetime, timezone
 
-from config import SEARCH
-from db.database import upsert_listing, get_active_listing_urls, mark_removed, update_available_from
+from config import SEARCH, HOME_OFFICE_PATTERNS, GEO_BOUNDS
+from db.database import (
+    upsert_listing,
+    get_active_listing_urls,
+    mark_removed,
+    update_available_from,
+)
+
+HOME_OFFICE_RE = re.compile("|".join(HOME_OFFICE_PATTERNS), re.IGNORECASE)
+
+
+def detect_home_office(*texts: str) -> bool:
+    """True if any of the given text blobs mention a home-office / study feature."""
+    for t in texts:
+        if t and HOME_OFFICE_RE.search(t):
+            return True
+    return False
 
 HEADERS = {
     "User-Agent": (
@@ -30,6 +45,7 @@ def _fetch_page(index: int) -> dict | None:
     params = {
         "locationIdentifier": SEARCH["location_id"],
         "minBedrooms": SEARCH["min_bedrooms"],
+        "maxBedrooms": SEARCH["max_bedrooms"],
         "maxPrice": SEARCH["max_price"],
         "minPrice": SEARCH["min_price"],
         "propertyTypes": "flat",
@@ -57,6 +73,11 @@ def _parse_property(prop: dict) -> dict | None:
         if not rm_id:
             return None
 
+        # Skip let-agreed properties — they're gone from the market
+        display_status = (prop.get("displayStatus") or "").strip()
+        if display_status.lower() == "let agreed":
+            return None
+
         price_info = prop.get("price", {})
         price = price_info.get("amount")
         if price and price_info.get("frequency") == "weekly":
@@ -67,12 +88,28 @@ def _parse_property(prop: dict) -> dict | None:
         lat = location.get("latitude")
         lon = location.get("longitude")
 
+        # Drop properties outside the configured geographic bounding box
+        if lat is not None and lon is not None:
+            if not (GEO_BOUNDS["lat_min"] <= lat <= GEO_BOUNDS["lat_max"] and
+                    GEO_BOUNDS["lon_min"] <= lon <= GEO_BOUNDS["lon_max"]):
+                return None
+
         images = prop.get("propertyImages", {}).get("images", [])
         if not images:
             images = prop.get("images", {}).get("images", [])
         photo_url = images[0].get("srcUrl", "") if images else ""
 
-        description = prop.get("summary") or prop.get("propertyTypeFullDescription", "")
+        summary = prop.get("summary") or prop.get("propertyTypeFullDescription", "")
+
+        # Key features are a curated bullet list in the search-results JSON — this
+        # is where agents flag a "Study"/"Home office", so it's the best signal.
+        key_features = [
+            f.get("description", "") for f in (prop.get("keyFeatures") or [])
+        ]
+        features_text = " • ".join(kf for kf in key_features if kf)
+        # Store features + summary together as the description we show/scan
+        description = (features_text + ("\n" if features_text else "") + summary).strip()
+        has_office = detect_home_office(features_text, summary)
 
         # displayAddress often ends with outcode e.g. "Hoxton, London N1"
         # We use it for postcode/area display; lat/lon comes from Rightmove directly
@@ -92,11 +129,12 @@ def _parse_property(prop: dict) -> dict | None:
             "postcode": postcode,
             "lat": lat,
             "lon": lon,
-            "description": (description or "")[:500],
+            "description": (description or "")[:800],
             "photo_url": photo_url,
             "date_listed": date_listed,
             "date_scraped": datetime.now(timezone.utc).isoformat(),
             "available_from": prop.get("letAvailableDate", ""),
+            "has_home_office": 1 if has_office else 0,
         }
     except Exception as e:
         print(f"[scraper] parse error on property {prop.get('id')}: {e}")
@@ -145,6 +183,7 @@ def run_scrape() -> int:
 
 AVAIL_DATE_RE = re.compile(r'<dt>Let available date: ?</dt><dd>(\d{2}/\d{2}/\d{4})</dd>')
 REMOVED_MARKER = "This property has been removed"
+LET_AGREED_MARKER = "Let Agreed"
 
 
 def fetch_missing_available_dates() -> int:
@@ -162,7 +201,7 @@ def fetch_missing_available_dates() -> int:
     for i, row in enumerate(rows, 1):
         try:
             resp = requests.get(row["url"], headers=HEADERS, timeout=10)
-            if REMOVED_MARKER in resp.text:
+            if REMOVED_MARKER in resp.text or LET_AGREED_MARKER in resp.text:
                 mark_removed(row["id"])
                 continue
             m = AVAIL_DATE_RE.search(resp.text)
@@ -201,10 +240,10 @@ def daily_listing_check() -> tuple[int, int]:
         needs_date = not row["available_from"]
         try:
             resp = requests.get(row["url"], headers=HEADERS, timeout=10)
-            if REMOVED_MARKER in resp.text:
+            if REMOVED_MARKER in resp.text or LET_AGREED_MARKER in resp.text:
                 mark_removed(row["id"])
                 removed += 1
-                print(f"[daily] removed: {row['url']}")
+                print(f"[daily] removed/let-agreed: {row['url']}")
                 continue
             if needs_date:
                 m = AVAIL_DATE_RE.search(resp.text)

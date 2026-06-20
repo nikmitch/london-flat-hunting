@@ -11,7 +11,11 @@ from db.database import (
     get_comments,
     get_comments_bulk,
 )
-from config import DESTINATIONS, TRAVEL_MODES, MAX_COMMUTE_MINUTES, AVAIL_IDEAL_DAYS, AVAIL_CUTOFF_DAYS, FLATMATES
+from config import (
+    DESTINATIONS, TRAVEL_MODES, MAX_COMMUTE_MINUTES,
+    AVAIL_IDEAL_DAYS, AVAIL_CUTOFF_DAYS, FLATMATES,
+    PRICE_FLOOR, PRICE_CEILING,
+)
 
 app = Flask(__name__)
 PER_PAGE = 30
@@ -65,19 +69,49 @@ def _best_score(flat_tt: dict, price_pcm: int, bedrooms: int, available_from: st
     """Lower = better.
     Components:
       - Commute (worst of the two work legs) — weight 2
-      - Price normalised 0–1 across £2500–£3300 — weight 8
-      - Bedroom penalty: +15 if only 2 beds
+      - Price normalised 0–1 across £2500–£5000 — weight 8
+      - Bedroom penalty: +12 if only 2 beds (kept only when they have a home office)
       - Availability penalty: 0 if ideal window, up to +10 if later (but still within cutoff)
     """
     commute = _worst_work_commute(flat_tt) or 999
-    price_norm = ((price_pcm or 3300) - 2500) / 800
-    bed_penalty = 15 if (bedrooms or 0) < 3 else 0
+    price_norm = ((price_pcm or PRICE_CEILING) - PRICE_FLOOR) / (PRICE_CEILING - PRICE_FLOOR)
+    bed_penalty = 12 if (bedrooms or 0) < 3 else 0
     avail_penalty = _avail_penalty(available_from) or 0
     return commute * 2 + price_norm * 8 + bed_penalty + avail_penalty
 
 
+def _passes_bed_filter(bedrooms: int, has_office: bool, beds: str) -> bool:
+    """Bedroom eligibility.
+
+    Core rule (always applied): a 2-bed only qualifies if it has a home office.
+    The `beds` selector then narrows further:
+      - "best"    → 3-bed, 4-bed, or 2-bed-with-office
+      - "3"       → exactly 3 beds
+      - "4"       → exactly 4 beds
+      - "2office" → 2-bed with a home office
+    """
+    beds_n = bedrooms or 0
+    two_bed_office = beds_n == 2 and has_office
+    if beds == "3":
+        return beds_n == 3
+    if beds == "4":
+        return beds_n == 4
+    if beds == "2office":
+        return two_bed_office
+    # "best" (default)
+    return beds_n in (3, 4) or two_bed_office
+
+
+def _passes_price_filter(price_pcm: int, min_price: int, max_price: int) -> bool:
+    if not price_pcm:
+        return True  # unknown price — don't hide it
+    return min_price <= price_pcm <= max_price
+
+
 def build_listings(status_filter: str, sort_by: str, page: int,
-                   current_user: str, all_votes: dict, all_comments: dict):
+                   current_user: str, all_votes: dict, all_comments: dict,
+                   beds: str = "best", min_price: int = PRICE_FLOOR,
+                   max_price: int = PRICE_CEILING):
     raw = get_all_listings()
     all_tt = get_all_travel_times_bulk()
 
@@ -85,6 +119,8 @@ def build_listings(status_filter: str, sort_by: str, page: int,
     calculating = 0
     rejected_commute = 0
     rejected_avail = 0
+    rejected_beds = 0
+    rejected_price = 0
 
     for row in raw:
         listing = dict(row)
@@ -104,6 +140,15 @@ def build_listings(status_filter: str, sort_by: str, page: int,
         avail_pen = _avail_penalty(listing.get("available_from", "") or "")
         if avail_pen is None:
             rejected_avail += 1
+            continue
+
+        # Bedroom + price filters (2-beds need a home office to qualify)
+        has_office = bool(listing.get("has_home_office"))
+        if not _passes_bed_filter(listing.get("bedrooms") or 0, has_office, beds):
+            rejected_beds += 1
+            continue
+        if not _passes_price_filter(listing.get("price_pcm") or 0, min_price, max_price):
+            rejected_price += 1
             continue
 
         # Per-user vote (fall back to global status when no user set)
@@ -178,21 +223,37 @@ def build_listings(status_filter: str, sort_by: str, page: int,
     offset = (page - 1) * PER_PAGE
     page_listings = shown[offset: offset + PER_PAGE]
 
-    return page_listings, total, total_pages, page, calculating, rejected_commute, rejected_avail
+    return (page_listings, total, total_pages, page, calculating,
+            rejected_commute, rejected_avail, rejected_beds, rejected_price)
+
+
+def _price_arg(name: str, default: int) -> int:
+    """Parse a price query param, clamped to the configured slider bounds."""
+    val = request.args.get(name, default, type=int)
+    if val is None:
+        val = default
+    return max(PRICE_FLOOR, min(PRICE_CEILING, val))
 
 
 @app.route("/")
 def index():
     status_filter = request.args.get("status", "active")
     sort_by = request.args.get("sort", "best")
+    beds = request.args.get("beds", "best")
+    min_price = _price_arg("min_price", PRICE_FLOOR)
+    max_price = _price_arg("max_price", PRICE_CEILING)
+    if min_price > max_price:
+        min_price, max_price = max_price, min_price
     page = request.args.get("page", 1, type=int)
     current_user = request.cookies.get("flatmate", "")
 
     all_votes = get_votes_bulk()
     all_comments = get_comments_bulk()
 
-    listings, total, total_pages, page, calculating, rejected_commute, rejected_avail = build_listings(
-        status_filter, sort_by, page, current_user, all_votes, all_comments
+    (listings, total, total_pages, page, calculating,
+     rejected_commute, rejected_avail, rejected_beds, rejected_price) = build_listings(
+        status_filter, sort_by, page, current_user, all_votes, all_comments,
+        beds=beds, min_price=min_price, max_price=max_price,
     )
 
     return render_template(
@@ -202,12 +263,19 @@ def index():
         modes=TRAVEL_MODES,
         status_filter=status_filter,
         sort_by=sort_by,
+        beds=beds,
+        min_price=min_price,
+        max_price=max_price,
+        price_floor=PRICE_FLOOR,
+        price_ceiling=PRICE_CEILING,
         page=page,
         total_pages=total_pages,
         total=total,
         calculating=calculating,
         rejected_commute=rejected_commute,
         rejected_avail=rejected_avail,
+        rejected_beds=rejected_beds,
+        rejected_price=rejected_price,
         current_user=current_user,
         flatmates=FLATMATES,
     )
@@ -229,6 +297,11 @@ def map_view():
 def listings_json():
     """GeoJSON FeatureCollection of all qualifying listings for the map."""
     status_filter = request.args.get("status", "active")
+    beds = request.args.get("beds", "best")
+    min_price = _price_arg("min_price", PRICE_FLOOR)
+    max_price = _price_arg("max_price", PRICE_CEILING)
+    if min_price > max_price:
+        min_price, max_price = max_price, min_price
     current_user = request.cookies.get("flatmate", "")
 
     raw = get_all_listings()
@@ -249,6 +322,12 @@ def listings_json():
         if avail_pen is None:
             continue
         if not listing["lat"] or not listing["lon"]:
+            continue
+
+        has_office = bool(listing.get("has_home_office"))
+        if not _passes_bed_filter(listing.get("bedrooms") or 0, has_office, beds):
+            continue
+        if not _passes_price_filter(listing.get("price_pcm") or 0, min_price, max_price):
             continue
 
         listing_votes = all_votes.get(lid, {})
@@ -304,6 +383,7 @@ def listings_json():
                 "title": listing["title"],
                 "price": listing["price_pcm"],
                 "bedrooms": listing["bedrooms"],
+                "has_home_office": has_office,
                 "postcode": listing["postcode"],
                 "worst_commute": worst,
                 "available": avail_display,

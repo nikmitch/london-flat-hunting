@@ -15,8 +15,8 @@ python main.py
 
 | Variable | Value | Notes |
 |---|---|---|
-| Price | £2,500–£3,300/mo | Weekly prices auto-converted (×4.3) |
-| Bedrooms | 2+ | 2-bed allowed but penalised in ranking |
+| Price | £2,500–£5,000/mo | Weekly prices auto-converted (×4.3). Dashboard has a dual slider over this range |
+| Bedrooms | 2–4 | Focus is 3-bed. 4-bed allowed. 2-bed only shown if it has a **home office** (detected from the listing's key features + description) |
 | Commute cutoff | 30 min | Non-bus transit to either work address |
 | Avail ideal | +12 days from today | No score penalty |
 | Avail cutoff | +49 days from today | Hard filter — rejected if later |
@@ -32,10 +32,11 @@ python main.py
 - **Scraper:** Rightmove `__NEXT_DATA__` JSON extraction, hourly via APScheduler
 - **Travel times:** TfL Journey Planner API, 12 calls/listing (3 dests × 4 modes), 5 parallel workers, global 7 req/sec rate limiter. Env var: `TFL_API_KEY` in `.env`
 - **Daily check:** fetches each listing page to mark removed listings + fill missing available-from dates
-- **Dashboard (`/`):** card grid, 30/page, best-match sort, pagination, per-user shortlist/reject, vote summary row per card, collapsible comment threads, name picker modal
+- **Enrichment:** `enrich_listings_from_pages()` fetches each un-enriched listing's own page, stores the full description + key features, and sets `has_home_office`. Runs after each scrape over `enriched=0` rows only. First run backfills the whole DB (~0.4s/listing)
+- **Dashboard (`/`):** card grid, 30/page, best-match sort, pagination, per-user shortlist/reject, vote summary row per card, collapsible comment threads, name picker modal. Filters: bedroom-type dropdown (3&4-bed + 2-bed offices / 3 / 4 / 2-bed+office) and a dual price slider (£2.5k–£5k). Home-office badge on qualifying cards
 - **Map (`/map`):** Leaflet.js, theme 2 (light) default, theme 7 (disco) toggle, rich popups with photos + commute table + vote summary + last 2 comments, star icons for shortlisted
 - **Multi-user voting:** `votes` + `comments` tables. `FLATMATES = ["Nik", "Jennifer", "Luis", "Demelza"]` in `config.py`. Endpoints: `POST /vote/<id>`, `POST /comment/<id>`, `GET /comments/<id>`
-- **Database:** SQLite at `data/listings.db`, tables: `listings`, `travel_times`, `votes`, `comments`
+- **Database:** SQLite at `data/listings.db`, tables: `listings`, `travel_times`, `votes`, `comments`. `listings` also has `has_home_office` + `enriched` columns
 - **Conda env:** `london_flat_hunting` (Python 3.12)
 - **GitHub:** `https://github.com/nikmitch/london-flat-hunting` (private)
 

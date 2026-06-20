@@ -70,6 +70,7 @@
     .pop-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 3px; }
     .pop-price { font-size: 1.1rem; font-weight: 700; }
     .pop-beds  { color: #6c757d; font-size: 0.8rem; }
+    .office-badge { display:inline-block; background:#e7f5ff; color:#1971c2; font-size:0.72rem; font-weight:600; padding:2px 7px; border-radius:10px; white-space:nowrap; }
     .pop-dates { font-size: 0.75rem; color: #868e96; margin-bottom: 10px; display: flex; gap: 10px; }
     .pop-dates .avail-ideal { color: #2b8a3e; font-weight: 500; }
     .pop-dates .avail-late  { color: #e67700; font-weight: 500; }
@@ -410,6 +411,7 @@ function makePopupHtml(p) {
         <span class="pop-price">£${p.price ? p.price.toLocaleString() : '—'}/mo</span>
         <span class="pop-beds">${p.bedrooms} bed${p.bedrooms !== 1 ? 's' : ''}</span>
         ${p.postcode ? `<span class="pop-beds">${escapeHtml(p.postcode)}</span>` : ''}
+        ${p.has_home_office ? `<span class="office-badge">🖥 Home office</span>` : ''}
       </div>
       <div class="pop-dates">
         ${daysHtml ? `<span>${daysHtml}</span>` : ''}

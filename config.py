@@ -41,10 +41,39 @@ TRAVEL_MODES = {
 
 SEARCH = {
     "min_price": 2500,
-    "max_price": 3300,
-    "min_bedrooms": 2,
+    "max_price": 5000,
+    "min_bedrooms": 2,   # 2-beds are scraped but only shown if they have a home office
+    "max_bedrooms": 4,
     "location_id": "REGION^87490",  # Greater London
 }
+
+# Bounding box applied immediately after scraping — properties outside this box
+# are dropped before DB insert, saving TfL API calls on unreachable areas.
+# All three work destinations are in EC1/EC2; this keeps roughly a 4-mile radius
+# around them while cutting out all of West London, outer South, far North/East.
+GEO_BOUNDS = {
+    "lat_min": 51.465,   # ~Peckham / Bermondsey
+    "lat_max": 51.595,   # ~Walthamstow / Stoke Newington
+    "lon_min": -0.160,   # ~Caledonian Road / Islington (cuts out West London)
+    "lon_max":  0.020,   # ~Hackney Wick / Whitechapel
+}
+
+# Bounds for the dashboard price slider (and price-score normalisation)
+PRICE_FLOOR = 2500
+PRICE_CEILING = 5000
+
+# A 2-bed flat is only worth considering if one room can serve as a home office.
+# These patterns are matched (case-insensitive) against the listing's key features
+# and summary to set the `has_home_office` flag. Kept deliberately tight to avoid
+# false positives from agent boilerplate ("moments from offices", "Post Office").
+HOME_OFFICE_PATTERNS = [
+    r"home[\s-]*office",
+    r"\bstudy\b",
+    r"work[\s-]*from[\s-]*home",
+    r"home[\s-]*working",
+    r"(?<!post[\s-])\boffice\b",    # "office" but not "Post Office"
+    r"third\s+reception",           # an extra reception room in a 2-bed
+]
 
 # Names shown in the "who are you?" picker — update these to match your group
 FLATMATES = ["Nik", "Jennifer", "Luis", "Demelza"]

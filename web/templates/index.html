@@ -18,18 +18,62 @@
     header {
       background: #1c1c1e;
       color: #fff;
-      padding: 16px 24px;
       display: flex;
-      align-items: center;
-      gap: 24px;
-      flex-wrap: wrap;
+      flex-direction: column;
       position: sticky;
       top: 0;
       z-index: 100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
+    .header-row { display: flex; align-items: center; padding: 12px 24px; gap: 20px; }
+    .top-row {
+      justify-content: space-between;
+      border-bottom: 1px solid #2c2c2e;
+    }
+    .filter-row { padding-top: 12px; padding-bottom: 14px; }
     header h1 { font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
-    header .count { color: #adb5bd; font-size: 0.85rem; white-space: nowrap; }
+
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .nav { display: flex; gap: 4px; }
+    .nav a {
+      color: #adb5bd; padding: 5px 12px; border-radius: 6px;
+      text-decoration: none; font-size: 0.82rem;
+    }
+    .nav a.active { color: #fff; background: rgba(255,255,255,0.15); font-weight: 600; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    /* ── Stat pills ── */
+    .stats { display: flex; align-items: center; gap: 8px; }
+    .stat {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 11px; border-radius: 20px;
+      font-size: 0.85rem; font-weight: 700;
+      white-space: nowrap; line-height: 1;
+    }
+    .stat .ico { font-size: 0.95rem; }
+    .stat-match    { background: #14361f; color: #51cf66; }
+    .stat-rejected { background: #3a1a1a; color: #ff8787; position: relative; cursor: default; }
+    .stat-calc     { background: #3a3320; color: #ffd43b; }
+
+    /* Hover breakdown on the rejected pill */
+    .stat-tip {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: #2c2c2e; color: #e9ecef;
+      border: 1px solid #3a3a3c; border-radius: 8px;
+      padding: 8px 4px; min-width: 200px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      font-size: 0.78rem; font-weight: 500;
+      display: none; z-index: 200; text-align: left;
+    }
+    .stat-rejected:hover .stat-tip { display: block; }
+    .stat-tip-row { display: flex; justify-content: space-between; gap: 16px; padding: 4px 10px; }
+    .stat-tip-row .n { font-weight: 700; color: #fff; }
+    .stat-tip-label { color: #adb5bd; }
 
     .user-chip {
       background: #4a9eff;
@@ -52,7 +96,6 @@
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
-      flex: 1;
     }
     .filters select, .filters input {
       background: #2c2c2e;
@@ -64,6 +107,59 @@
     }
     .filters select:focus, .filters input:focus { outline: 2px solid #4a9eff; }
     .filters input::placeholder { color: #6c757d; }
+
+    /* ── Dual price slider ── */
+    .price-slider {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding: 0 4px;
+    }
+    .price-label {
+      font-size: 0.8rem; color: #fff; font-weight: 600;
+      white-space: nowrap; min-width: 118px; text-align: right;
+    }
+    .price-label span { color: #4a9eff; }
+    .slider-track { position: relative; height: 20px; width: 150px; }
+    .slider-track .slider-rail {
+      position: absolute; top: 8px; left: 0; right: 0; height: 4px;
+      background: #3a3a3c; border-radius: 2px;
+    }
+    .slider-range {
+      position: absolute; top: 8px; height: 4px;
+      background: #4a9eff; border-radius: 2px;
+    }
+    .slider-track input[type=range] {
+      position: absolute; top: 0; left: 0; width: 100%;
+      margin: 0; padding: 0; background: none; border: none;
+      -webkit-appearance: none; appearance: none;
+      pointer-events: none;
+      height: 20px;
+    }
+    .slider-track input[type=range]:focus { outline: none; }
+    .slider-track input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 2px solid #4a9eff; cursor: pointer;
+      pointer-events: auto; margin-top: 0;
+    }
+    .slider-track input[type=range]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 2px solid #4a9eff; cursor: pointer;
+      pointer-events: auto;
+    }
+    .slider-track input[type=range]::-webkit-slider-runnable-track { background: none; }
+    .slider-track input[type=range]::-moz-range-track { background: none; }
+
+    /* ── Home-office badge ── */
+    .office-badge {
+      display: inline-block;
+      background: #e7f5ff; color: #1971c2;
+      font-size: 0.72rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 10px;
+      white-space: nowrap;
+    }
 
     /* ── Grid ── */
     main {
@@ -340,21 +436,53 @@
 </div>
 
 <header>
-  <h1>London Flat Hunter</h1>
-  <div style="display:flex;gap:4px;">
-    <a href="/"    style="color:#fff;background:rgba(255,255,255,0.15);padding:5px 12px;border-radius:6px;text-decoration:none;font-size:0.82rem;font-weight:600">Cards</a>
-    <a href="/map" style="color:#adb5bd;padding:5px 12px;border-radius:6px;text-decoration:none;font-size:0.82rem">Map</a>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:2px;">
-    <span class="count">{{ listings|length }} listing{{ 's' if listings|length != 1 else '' }} match</span>
-    <span style="color:#6c757d;font-size:0.75rem;">{{ rejected_commute }} commute · {{ rejected_avail }} too late · {{ calculating }} calculating</span>
+  <div class="header-row top-row">
+    <div class="brand">
+      <h1>London Flat Hunter</h1>
+      <nav class="nav">
+        <a href="/"    class="active">Cards</a>
+        <a href="/map">Map</a>
+      </nav>
+    </div>
+
+    <div class="header-right">
+      {% set total_rejected = rejected_commute + rejected_avail + rejected_beds + rejected_price %}
+      <div class="stats">
+        <span class="stat stat-match" title="Listings that match all your filters">
+          <span class="ico">✓</span>{{ total }}
+        </span>
+        <span class="stat stat-rejected" title="Listings filtered out — hover for why">
+          <span class="ico">✗</span>{{ total_rejected }}
+          <div class="stat-tip">
+            <div class="stat-tip-row"><span class="stat-tip-label">Commute too long</span><span class="n">{{ rejected_commute }}</span></div>
+            <div class="stat-tip-row"><span class="stat-tip-label">Available too late</span><span class="n">{{ rejected_avail }}</span></div>
+            <div class="stat-tip-row"><span class="stat-tip-label">Wrong bedroom type</span><span class="n">{{ rejected_beds }}</span></div>
+            <div class="stat-tip-row"><span class="stat-tip-label">Outside price range</span><span class="n">{{ rejected_price }}</span></div>
+          </div>
+        </span>
+        <span class="stat stat-calc" title="Travel times still being calculated">
+          <span class="ico">⏳</span>{{ calculating }}
+        </span>
+      </div>
+      <button class="user-chip {% if not current_user %}unset{% endif %}"
+              id="user-chip" onclick="showNamePicker()">
+        {% if current_user %}{{ current_user }}{% else %}Who are you?{% endif %}
+      </button>
+    </div>
   </div>
 
-  <form class="filters" method="get">
+  <form class="filters header-row filter-row" method="get" id="filter-form">
     <select name="status" onchange="this.form.submit()">
       <option value="active"      {% if status_filter == 'active'      %}selected{% endif %}>Hide rejected</option>
       <option value="shortlisted" {% if status_filter == 'shortlisted' %}selected{% endif %}>My shortlist</option>
       <option value="consensus"   {% if status_filter == 'consensus'   %}selected{% endif %}>Everyone shortlisted</option>
+    </select>
+
+    <select name="beds" onchange="this.form.submit()" title="Bedroom type">
+      <option value="best"    {% if beds == 'best'    %}selected{% endif %}>3 &amp; 4 bed + 2-bed offices</option>
+      <option value="3"       {% if beds == '3'       %}selected{% endif %}>3 bedrooms</option>
+      <option value="4"       {% if beds == '4'       %}selected{% endif %}>4 bedrooms</option>
+      <option value="2office" {% if beds == '2office' %}selected{% endif %}>2-bed + home office</option>
     </select>
 
     <select name="sort" onchange="this.form.submit()">
@@ -362,12 +490,19 @@
       <option value="commute" {% if sort_by == 'commute' %}selected{% endif %}>Best commute</option>
       <option value="price"   {% if sort_by == 'price'   %}selected{% endif %}>Cheapest first</option>
     </select>
-  </form>
 
-  <button class="user-chip {% if not current_user %}unset{% endif %}"
-          id="user-chip" onclick="showNamePicker()">
-    {% if current_user %}{{ current_user }}{% else %}Who are you?{% endif %}
-  </button>
+    <div class="price-slider" id="price-slider">
+      <span class="price-label">&pound;<span id="min-price-label">{{ "{:,}".format(min_price) }}</span>&nbsp;–&nbsp;&pound;<span id="max-price-label">{{ "{:,}".format(max_price) }}</span></span>
+      <div class="slider-track">
+        <div class="slider-rail"></div>
+        <div class="slider-range" id="slider-range"></div>
+        <input type="range" name="min_price" id="min-price"
+               min="{{ price_floor }}" max="{{ price_ceiling }}" step="50" value="{{ min_price }}">
+        <input type="range" name="max_price" id="max-price"
+               min="{{ price_floor }}" max="{{ price_ceiling }}" step="50" value="{{ max_price }}">
+      </div>
+    </div>
+  </form>
 </header>
 
 <main>
@@ -400,6 +535,7 @@
         <span class="card-price">&pound;{{ "{:,}".format(listing.price_pcm) if listing.price_pcm else '—' }}/mo</span>
         <span class="card-beds">{{ listing.bedrooms }} bed{% if listing.bedrooms != 1 %}s{% endif %}</span>
         {% if listing.postcode %}<span class="card-beds">{{ listing.postcode }}</span>{% endif %}
+        {% if listing.has_home_office %}<span class="office-badge">🖥 Home office</span>{% endif %}
       </div>
       <div class="days-on-market" style="display:flex;gap:12px;flex-wrap:wrap;">
         <span>
@@ -498,7 +634,7 @@
   {% endfor %}
   {% if total_pages > 1 %}
   <div class="pagination">
-    {% set base = "/?status=" ~ status_filter ~ "&sort=" ~ sort_by %}
+    {% set base = "/?status=" ~ status_filter ~ "&sort=" ~ sort_by ~ "&beds=" ~ beds ~ "&min_price=" ~ min_price ~ "&max_price=" ~ max_price %}
     <a href="{{ base }}&page={{ page - 1 }}" class="{% if page <= 1 %}disabled{% endif %}">&larr;</a>
 
     {% for p in range(1, total_pages + 1) %}
@@ -518,6 +654,43 @@
 </main>
 
 <script>
+  // ── Dual price slider ────────────────────────────────────────────────────
+  (function initPriceSlider() {
+    const minInput = document.getElementById('min-price');
+    const maxInput = document.getElementById('max-price');
+    if (!minInput || !maxInput) return;
+    const rangeEl = document.getElementById('slider-range');
+    const minLabel = document.getElementById('min-price-label');
+    const maxLabel = document.getElementById('max-price-label');
+    const floor = +minInput.min, ceiling = +minInput.max;
+    const gap = 50; // keep the two handles at least one step apart
+
+    const fmt = (n) => (+n).toLocaleString();
+
+    function paint() {
+      let lo = +minInput.value, hi = +maxInput.value;
+      if (lo > hi - gap) {
+        // Push whichever handle is being dragged so they don't cross
+        if (document.activeElement === minInput) lo = hi - gap;
+        else hi = lo + gap;
+        minInput.value = lo; maxInput.value = hi;
+      }
+      minLabel.textContent = fmt(lo);
+      maxLabel.textContent = fmt(hi);
+      const left = ((lo - floor) / (ceiling - floor)) * 100;
+      const right = ((hi - floor) / (ceiling - floor)) * 100;
+      rangeEl.style.left = left + '%';
+      rangeEl.style.width = (right - left) + '%';
+    }
+
+    minInput.addEventListener('input', paint);
+    maxInput.addEventListener('input', paint);
+    const submit = () => document.getElementById('filter-form').submit();
+    minInput.addEventListener('change', submit);
+    maxInput.addEventListener('change', submit);
+    paint();
+  })();
+
   // ── Name picker ──────────────────────────────────────────────────────────
   function currentUser() {
     return localStorage.getItem('flatmate') || '';
