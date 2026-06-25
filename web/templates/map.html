@@ -76,6 +76,10 @@
     .agent-ok { background:#ebfbee; color:#2b8a3e; } .agent-ok::before { background:#2b8a3e; }
     .agent-mid { background:#fff9db; color:#b07d00; } .agent-mid::before { background:#e8a900; }
     .agent-avoid { background:#fff0f0; color:#c92a2a; } .agent-avoid::before { background:#c92a2a; }
+    .line-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+    .line-badge { display:inline-flex; align-items:center; gap:4px; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:10px; }
+    .line-good { background:#e7f5ff; color:#1462a8; }
+    .line-bad  { background:#fff0f0; color:#c92a2a; }
     .pop-dates { font-size: 0.75rem; color: #868e96; margin-bottom: 10px; display: flex; gap: 10px; }
     .pop-dates .avail-ideal { color: #2b8a3e; font-weight: 500; }
     .pop-dates .avail-late  { color: #e67700; font-weight: 500; }
@@ -419,6 +423,7 @@ function makePopupHtml(p) {
         ${p.has_home_office ? `<span class="office-badge">🖥 Home office</span>` : ''}
       </div>
       ${p.agent ? `<div class="agent-badge agent-${p.agent.tier}" title="${escapeHtml(p.agent.note)}">${escapeHtml(p.agent.agent)} · ${escapeHtml(p.agent.note)}</div>` : ''}
+      ${(p.lines && p.lines.length) ? `<div class="line-row">${p.lines.map(l => `<span class="line-badge line-${l.tier}" title="${escapeHtml(l.note)}">${l.tier === 'good' ? '✨' : '⚠'} ${escapeHtml(l.line)}</span>`).join('')}</div>` : ''}
       <div class="pop-dates">
         ${daysHtml ? `<span>${daysHtml}</span>` : ''}
         <span class="${availClass}">${escapeHtml(p.available)}</span>

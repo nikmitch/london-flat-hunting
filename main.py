@@ -3,9 +3,12 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from db.database import init_db, listings_needing_travel_times, save_travel_time, clear_failed_transit_listings
+from db.database import (
+    init_db, listings_needing_travel_times, save_travel_time,
+    clear_failed_transit_listings, listings_missing_commute_lines, update_travel_lines,
+)
 from scraper.rightmove import run_scrape, daily_listing_check
-from travel.tfl import calculate_all_travel_times
+from travel.tfl import calculate_all_travel_times, get_journey_time
 from config import DESTINATIONS, SCRAPE_INTERVAL_MINUTES, FLATMATES
 from web.app import app
 
@@ -14,13 +17,14 @@ TRAVEL_WORKERS = 5  # concurrent listings; 5×12 calls share the global rate lim
 
 def _calc_one(listing):
     times = calculate_all_travel_times(listing["lat"], listing["lon"])
-    for (dest_key, mode_key), duration in times.items():
+    for (dest_key, mode_key), (duration, lines) in times.items():
         save_travel_time(
             listing["id"],
             dest_key,
             mode_key,
             DESTINATIONS[dest_key]["depart_time"],
             duration,
+            lines,
         )
     return listing["title"]
 
@@ -43,12 +47,36 @@ def process_travel_times():
     print("[travel] all done")
 
 
+def backfill_commute_lines():
+    """Fill tube/rail line names for already-calculated qualifying listings.
+    Only the two work no-bus legs are re-fetched (2 calls each), so this is cheap
+    and bounded to listings a user would actually see."""
+    pending = listings_missing_commute_lines()
+    if not pending:
+        return
+    print(f"[lines] backfilling commute lines for {len(pending)} listings...")
+    work_dests = ("your_work", "lisa")
+    for i, row in enumerate(pending, 1):
+        for dest_key in work_dests:
+            dest = DESTINATIONS[dest_key]
+            _, lines = get_journey_time(
+                row["lat"], row["lon"], dest["lat"], dest["lon"],
+                dest["depart_time"], "tube,dlr,overground,elizabeth-line,national-rail",
+            )
+            if lines:
+                update_travel_lines(row["id"], dest_key, "transit_no_bus", lines)
+        if i % 50 == 0:
+            print(f"[lines] {i}/{len(pending)} backfilled")
+    print(f"[lines] done — {len(pending)} listings backfilled")
+
+
 def scrape_and_update():
     run_scrape()
     cleared = clear_failed_transit_listings()
     if cleared:
         print(f"[travel] cleared {cleared} failed listings for retry")
     process_travel_times()
+    backfill_commute_lines()
 
 
 if __name__ == "__main__":

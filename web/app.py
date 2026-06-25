@@ -11,12 +11,13 @@ from db.database import (
     add_comment,
     get_comments,
     get_comments_bulk,
+    get_commute_lines_bulk,
 )
 from config import (
     DESTINATIONS, TRAVEL_MODES, MAX_COMMUTE_MINUTES,
     AVAIL_IDEAL_DAYS, AVAIL_CUTOFF_DAYS, FLATMATES,
     PRICE_FLOOR, PRICE_CEILING,
-    AGENT_RATINGS, BTR_RATING,
+    AGENT_RATINGS, BTR_RATING, LINE_RATINGS,
 )
 
 app = Flask(__name__)
@@ -41,6 +42,17 @@ def assess_agent(agent_name: str, is_btr: bool = False) -> dict | None:
         tier, note = BTR_RATING
         return {"agent": name or "Build-to-rent", "tier": tier, "note": note}
     return None
+
+
+def assess_lines(lines: list[str]) -> list[dict]:
+    """Badge any noteworthy lines used on the work commute (Elizabeth/Northern).
+    Returns a list of {"line", "tier", "note"} in LINE_RATINGS order."""
+    out = []
+    for needle, tier, note in LINE_RATINGS:
+        match = next((l for l in (lines or []) if needle in l.lower()), None)
+        if match:
+            out.append({"line": match, "tier": tier, "note": note})
+    return out
 
 
 def _worst_work_commute(flat_tt: dict) -> int | None:
@@ -136,6 +148,7 @@ def build_listings(status_filter: str, sort_by: str, page: int,
                    max_price: int = PRICE_CEILING):
     raw = get_all_listings()
     all_tt = get_all_travel_times_bulk()
+    all_lines = get_commute_lines_bulk()
 
     shown = []
     calculating = 0
@@ -215,6 +228,7 @@ def build_listings(status_filter: str, sort_by: str, page: int,
         listing["agent_assessment"] = assess_agent(
             listing.get("agent_name"), bool(listing.get("is_btr"))
         )
+        listing["line_assessment"] = assess_lines(all_lines.get(lid, []))
 
         listing["tt"] = tt
         listing["worst_work_mins"] = worst
@@ -334,6 +348,7 @@ def listings_json():
     all_tt = get_all_travel_times_bulk()
     all_votes = get_votes_bulk()
     all_comments = get_comments_bulk()
+    all_lines = get_commute_lines_bulk()
     features = []
 
     for row in raw:
@@ -411,6 +426,7 @@ def listings_json():
                 "bedrooms": listing["bedrooms"],
                 "has_home_office": has_office,
                 "agent": assess_agent(listing.get("agent_name"), bool(listing.get("is_btr"))),
+                "lines": assess_lines(all_lines.get(lid, [])),
                 "postcode": listing["postcode"],
                 "worst_commute": worst,
                 "available": avail_display,

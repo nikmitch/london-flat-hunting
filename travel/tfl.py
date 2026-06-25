@@ -28,12 +28,25 @@ def _rate_limited_get(url: str, params: dict) -> requests.Response | None:
         return None
 
 
+def _extract_lines(journey: dict) -> list[str]:
+    """Named tube/rail lines used in a journey, in order, de-duplicated.
+    Walking/cycling legs contribute nothing (their routeOptions have no name)."""
+    lines: list[str] = []
+    for leg in journey.get("legs", []):
+        for r in (leg.get("routeOptions") or []):
+            name = r.get("name") or (r.get("lineIdentifier") or {}).get("name")
+            if name and name not in lines:
+                lines.append(name)
+    return lines
+
+
 def get_journey_time(
     from_lat: float, from_lon: float,
     to_lat: float, to_lon: float,
     time_str: str,
     modes: str,
-) -> int | None:
+) -> tuple[int | None, list[str]]:
+    """Returns (duration_minutes, lines_used). Either may be empty/None on failure."""
     url = f"{TFL_BASE}/{from_lat},{from_lon}/to/{to_lat},{to_lon}"
     params = {
         "time": time_str,
@@ -44,16 +57,16 @@ def get_journey_time(
     }
     resp = _rate_limited_get(url, params)
     if resp is None:
-        return None
+        return None, []
     if resp.status_code == 200:
         journeys = resp.json().get("journeys", [])
         if journeys:
-            return journeys[0]["duration"]
-    return None
+            return journeys[0]["duration"], _extract_lines(journeys[0])
+    return None, []
 
 
 def calculate_all_travel_times(lat: float, lon: float) -> dict:
-    """Returns {(destination_key, mode_key): duration_minutes}.
+    """Returns {(destination_key, mode_key): (duration_minutes, lines_used)}.
     All 12 calls are made concurrently within thread pool limits."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -80,5 +93,5 @@ def calculate_all_travel_times(lat: float, lon: float) -> dict:
                 results[key] = future.result()
             except Exception as e:
                 print(f"[tfl] future error {key}: {e}")
-                results[key] = None
+                results[key] = (None, [])
     return results

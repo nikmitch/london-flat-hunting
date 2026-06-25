@@ -178,6 +178,16 @@
     .agent-avoid { background: #fff0f0; color: #c92a2a; }
     .agent-avoid::before { background: #c92a2a; }
 
+    /* ── Commute line badges ── */
+    .line-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .line-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.72rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 10px; cursor: help;
+    }
+    .line-good { background: #e7f5ff; color: #1462a8; }
+    .line-bad  { background: #fff0f0; color: #c92a2a; }
+
     /* ── Grid ── */
     main {
       max-width: 1400px;
@@ -560,6 +570,15 @@
               title="{{ listing.agent_assessment.note }}">
           {{ listing.agent_assessment.agent }} · {{ listing.agent_assessment.note }}
         </span>
+      </div>
+      {% endif %}
+      {% if listing.line_assessment %}
+      <div class="line-row">
+        {% for ln in listing.line_assessment %}
+        <span class="line-badge line-{{ ln.tier }}" title="{{ ln.note }}">
+          {% if ln.tier == 'good' %}✨{% else %}⚠{% endif %} {{ ln.line }}
+        </span>
+        {% endfor %}
       </div>
       {% endif %}
       <div class="days-on-market" style="display:flex;gap:12px;flex-wrap:wrap;">

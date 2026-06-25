@@ -94,6 +94,15 @@ AGENT_RATINGS = [
 # student-heavy tenancies, inconsistent standards, even pricey KX ones had issues).
 BTR_RATING = ("avoid", "New-build build-to-rent — usually not worthwhile")
 
+# Tube/rail line opinions (from the same coworker). Matched against the line
+# names TfL reports for each work commute. "good" lines earn a green badge,
+# "bad" lines a red one — shown only on listings that pass the filters.
+# Keys are matched case-insensitively as a substring of the TfL line name.
+LINE_RATINGS = [
+    ("elizabeth", "good", "Elizabeth line — fast & air-conditioned"),
+    ("northern",  "bad",  "Northern line — busy, hot, no air-con"),
+]
+
 # Names shown in the "who are you?" picker — update these to match your group
 FLATMATES = ["Nik", "Jennifer", "Luis", "Demelza"]
 

@@ -45,6 +45,7 @@ def init_db(owner_name: str = None):
                 mode             TEXT NOT NULL,
                 departure_time   TEXT,
                 duration_minutes INTEGER,
+                lines            TEXT,
                 FOREIGN KEY (listing_id) REFERENCES listings(id),
                 UNIQUE (listing_id, destination, mode)
             );
@@ -81,6 +82,9 @@ def init_db(owner_name: str = None):
             conn.execute("ALTER TABLE listings ADD COLUMN agent_name TEXT")
         if "is_btr" not in cols:
             conn.execute("ALTER TABLE listings ADD COLUMN is_btr INTEGER DEFAULT 0")
+        tt_cols = [r[1] for r in conn.execute("PRAGMA table_info(travel_times)").fetchall()]
+        if "lines" not in tt_cols:
+            conn.execute("ALTER TABLE travel_times ADD COLUMN lines TEXT")
         # Fix weekly prices that were stored without conversion (all are < 1500 in our search range)
         conn.execute(
             "UPDATE listings SET price_pcm = ROUND(price_pcm * 4.3) WHERE price_pcm < 1500"
@@ -152,13 +156,15 @@ def update_available_from(listing_id: int, iso_date: str):
         )
 
 
-def save_travel_time(listing_id, destination, mode, departure_time, duration_minutes):
+def save_travel_time(listing_id, destination, mode, departure_time, duration_minutes, lines=None):
+    if isinstance(lines, (list, tuple)):
+        lines = ", ".join(lines) if lines else None
     with get_conn() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO travel_times
-               (listing_id, destination, mode, departure_time, duration_minutes)
-               VALUES (?, ?, ?, ?, ?)""",
-            (listing_id, destination, mode, departure_time, duration_minutes),
+               (listing_id, destination, mode, departure_time, duration_minutes, lines)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (listing_id, destination, mode, departure_time, duration_minutes, lines),
         )
 
 
@@ -188,6 +194,33 @@ def get_all_travel_times_bulk() -> dict:
         if lid not in result:
             result[lid] = {}
         result[lid][(row["destination"], row["mode"])] = row["duration_minutes"]
+    return result
+
+
+def get_commute_lines_bulk() -> dict:
+    """Returns {listing_id: [line_name, ...]} for the two work commutes.
+    Uses the no-bus transit route per destination, falling back to the +bus
+    route when no-bus has no stored lines. De-duplicated, order-preserving."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT listing_id, destination, mode, lines FROM travel_times
+               WHERE destination IN ('your_work', 'lisa')
+               AND mode IN ('transit_no_bus', 'transit_all')
+               AND lines IS NOT NULL AND lines != ''"""
+        ).fetchall()
+    # Per (listing, destination), prefer the no-bus route's lines
+    by_dest: dict = {}
+    for r in rows:
+        key = (r["listing_id"], r["destination"])
+        existing = by_dest.get(key)
+        if existing is None or (existing[0] == "transit_all" and r["mode"] == "transit_no_bus"):
+            by_dest[key] = (r["mode"], r["lines"])
+    result: dict = {}
+    for (lid, _dest), (_mode, lines_str) in by_dest.items():
+        bucket = result.setdefault(lid, [])
+        for name in (s.strip() for s in lines_str.split(",")):
+            if name and name not in bucket:
+                bucket.append(name)
     return result
 
 
@@ -235,6 +268,33 @@ def listings_needing_travel_times():
                )
                ORDER BY l.date_scraped DESC"""
         ).fetchall()
+
+
+def listings_missing_commute_lines():
+    """Active, qualifying listings (a work leg ≤30 min) whose work commute rows
+    have no stored line data yet. Used to backfill lines for already-calculated
+    listings without recomputing everything."""
+    with get_conn() as conn:
+        return conn.execute(
+            """SELECT DISTINCT l.id, l.lat, l.lon FROM listings l
+               JOIN travel_times t ON t.listing_id = l.id
+               WHERE l.is_removed = 0 AND l.lat IS NOT NULL
+                 AND t.destination IN ('your_work', 'lisa')
+                 AND t.mode = 'transit_no_bus'
+                 AND t.duration_minutes IS NOT NULL
+                 AND t.duration_minutes <= 30
+                 AND (t.lines IS NULL OR t.lines = '')"""
+        ).fetchall()
+
+
+def update_travel_lines(listing_id: int, destination: str, mode: str, lines):
+    if isinstance(lines, (list, tuple)):
+        lines = ", ".join(lines) if lines else None
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE travel_times SET lines = ? WHERE listing_id = ? AND destination = ? AND mode = ?",
+            (lines, listing_id, destination, mode),
+        )
 
 
 def upsert_vote(listing_id: int, user_name: str, status: str):
