@@ -257,6 +257,19 @@ def clear_failed_transit_listings():
         return len(ids)
 
 
+def delete_travel_times_for(listing_ids: list[int]) -> int:
+    """Drop all travel-time rows for the given listings so they get recalculated
+    (e.g. after a destination-coordinate change). Returns rows deleted."""
+    if not listing_ids:
+        return 0
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"DELETE FROM travel_times WHERE listing_id IN ({','.join('?'*len(listing_ids))})",
+            listing_ids,
+        )
+        return cur.rowcount
+
+
 def listings_needing_travel_times():
     with get_conn() as conn:
         return conn.execute(

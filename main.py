@@ -3,13 +3,19 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from pathlib import Path
+
 from db.database import (
     init_db, listings_needing_travel_times, save_travel_time,
     clear_failed_transit_listings, listings_missing_commute_lines, update_travel_lines,
+    get_all_travel_times_bulk, delete_travel_times_for,
 )
 from scraper.rightmove import run_scrape, daily_listing_check
 from travel.tfl import calculate_all_travel_times, get_journey_time
-from config import DESTINATIONS, SCRAPE_INTERVAL_MINUTES, FLATMATES
+from config import DESTINATIONS, SCRAPE_INTERVAL_MINUTES, FLATMATES, MAX_COMMUTE_MINUTES
+from web.app import _worst_work_commute
+
+RECOMPUTE_MARKER = Path(__file__).parent / "data" / ".coords_recompute_done"
 from web.app import app
 
 TRAVEL_WORKERS = 5  # concurrent listings; 5×12 calls share the global rate limiter
@@ -70,6 +76,26 @@ def backfill_commute_lines():
     print(f"[lines] done — {len(pending)} listings backfilled")
 
 
+def recompute_qualifying_once():
+    """One-time: after the destination-coordinate fix, clear travel times for the
+    listings currently passing the commute filter so they recalculate against the
+    corrected coords (and pick up line data). Guarded by a marker on the data
+    volume so Railway restarts don't repeat it — delete the marker to re-run."""
+    if RECOMPUTE_MARKER.exists():
+        return
+    all_tt = get_all_travel_times_bulk()
+    qualifying = [
+        lid for lid, tt in all_tt.items()
+        if (w := _worst_work_commute(tt)) is not None and w <= MAX_COMMUTE_MINUTES
+    ]
+    if qualifying:
+        deleted = delete_travel_times_for(qualifying)
+        print(f"[recompute] cleared {deleted} rows for {len(qualifying)} qualifying "
+              f"listings — will recalc against corrected coords")
+    RECOMPUTE_MARKER.parent.mkdir(exist_ok=True)
+    RECOMPUTE_MARKER.write_text("done\n")
+
+
 def scrape_and_update():
     run_scrape()
     cleared = clear_failed_transit_listings()
@@ -84,6 +110,8 @@ if __name__ == "__main__":
 
     init_db(owner_name=FLATMATES[0] if FLATMATES else None)
     print("[db] initialised")
+
+    recompute_qualifying_once()
 
     bg = threading.Thread(target=scrape_and_update, daemon=True, name="scraper")
     bg.start()
