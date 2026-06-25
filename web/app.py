@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from datetime import datetime, timezone
 from flask import Flask, render_template, request, jsonify
 from db.database import (
@@ -15,10 +16,31 @@ from config import (
     DESTINATIONS, TRAVEL_MODES, MAX_COMMUTE_MINUTES,
     AVAIL_IDEAL_DAYS, AVAIL_CUTOFF_DAYS, FLATMATES,
     PRICE_FLOOR, PRICE_CEILING,
+    AGENT_RATINGS, BTR_RATING,
 )
 
 app = Flask(__name__)
 PER_PAGE = 30
+
+# Precompile the agent vetting patterns once
+_AGENT_RATINGS = [(re.compile(p, re.IGNORECASE), tier, note) for p, tier, note in AGENT_RATINGS]
+
+
+def assess_agent(agent_name: str, is_btr: bool = False) -> dict | None:
+    """Map a letting agent (and build-to-rent flag) to a vetting verdict.
+
+    Returns {"agent", "tier", "note"} or None when there's nothing to say.
+    A specific agent rating wins over the generic build-to-rent caution.
+    Computed only for listings that pass the filters (see build_listings)."""
+    name = (agent_name or "").strip()
+    if name:
+        for pat, tier, note in _AGENT_RATINGS:
+            if pat.search(name):
+                return {"agent": name, "tier": tier, "note": note}
+    if is_btr:
+        tier, note = BTR_RATING
+        return {"agent": name or "Build-to-rent", "tier": tier, "note": note}
+    return None
 
 
 def _worst_work_commute(flat_tt: dict) -> int | None:
@@ -189,6 +211,10 @@ def build_listings(status_filter: str, sort_by: str, page: int,
             avail_dt.strftime("%-d %b %Y") if avail_dt else "Date unknown"
         )
         listing["avail_ideal"] = avail_pen == 0
+
+        listing["agent_assessment"] = assess_agent(
+            listing.get("agent_name"), bool(listing.get("is_btr"))
+        )
 
         listing["tt"] = tt
         listing["worst_work_mins"] = worst
@@ -384,6 +410,7 @@ def listings_json():
                 "price": listing["price_pcm"],
                 "bedrooms": listing["bedrooms"],
                 "has_home_office": has_office,
+                "agent": assess_agent(listing.get("agent_name"), bool(listing.get("is_btr"))),
                 "postcode": listing["postcode"],
                 "worst_commute": worst,
                 "available": avail_display,

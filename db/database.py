@@ -33,7 +33,9 @@ def init_db(owner_name: str = None):
                 is_removed       INTEGER DEFAULT 0,
                 available_from   TEXT,
                 has_home_office  INTEGER DEFAULT 0,
-                enriched         INTEGER DEFAULT 0
+                enriched         INTEGER DEFAULT 0,
+                agent_name       TEXT,
+                is_btr           INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS travel_times (
@@ -75,6 +77,10 @@ def init_db(owner_name: str = None):
             conn.execute("ALTER TABLE listings ADD COLUMN has_home_office INTEGER DEFAULT 0")
         if "enriched" not in cols:
             conn.execute("ALTER TABLE listings ADD COLUMN enriched INTEGER DEFAULT 0")
+        if "agent_name" not in cols:
+            conn.execute("ALTER TABLE listings ADD COLUMN agent_name TEXT")
+        if "is_btr" not in cols:
+            conn.execute("ALTER TABLE listings ADD COLUMN is_btr INTEGER DEFAULT 0")
         # Fix weekly prices that were stored without conversion (all are < 1500 in our search range)
         conn.execute(
             "UPDATE listings SET price_pcm = ROUND(price_pcm * 4.3) WHERE price_pcm < 1500"
@@ -105,13 +111,17 @@ def upsert_listing(data: dict) -> tuple[int, bool]:
                        date_listed = :date_listed,
                        available_from = :available_from,
                        description = :description,
-                       has_home_office = :has_home_office
+                       has_home_office = :has_home_office,
+                       agent_name = :agent_name,
+                       is_btr = :is_btr
                    WHERE id = :id""",
                 {
                     "date_listed": data["date_listed"],
                     "available_from": data.get("available_from"),
                     "description": data.get("description"),
                     "has_home_office": data.get("has_home_office", 0),
+                    "agent_name": data.get("agent_name"),
+                    "is_btr": data.get("is_btr", 0),
                     "id": existing["id"],
                 },
             )
@@ -120,11 +130,11 @@ def upsert_listing(data: dict) -> tuple[int, bool]:
             """INSERT INTO listings
                (url, rightmove_id, title, price_pcm, bedrooms, postcode,
                 lat, lon, description, photo_url, date_listed, date_scraped,
-                available_from, has_home_office)
+                available_from, has_home_office, agent_name, is_btr)
                VALUES
                (:url, :rightmove_id, :title, :price_pcm, :bedrooms, :postcode,
                 :lat, :lon, :description, :photo_url, :date_listed, :date_scraped,
-                :available_from, :has_home_office)""",
+                :available_from, :has_home_office, :agent_name, :is_btr)""",
             data,
         )
         return cursor.lastrowid, True

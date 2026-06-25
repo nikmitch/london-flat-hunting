@@ -111,6 +111,12 @@ def _parse_property(prop: dict) -> dict | None:
         description = (features_text + ("\n" if features_text else "") + summary).strip()
         has_office = detect_home_office(features_text, summary)
 
+        # Letting agent / brand — used for the vetting badge on the dashboard.
+        customer = prop.get("customer") or {}
+        agent_name = (customer.get("brandTradingName")
+                      or customer.get("branchDisplayName") or "").strip()
+        is_btr = 1 if customer.get("buildToRent") else 0
+
         # displayAddress often ends with outcode e.g. "Hoxton, London N1"
         # We use it for postcode/area display; lat/lon comes from Rightmove directly
         postcode = address.split(",")[-1].strip() if address else ""
@@ -135,6 +141,8 @@ def _parse_property(prop: dict) -> dict | None:
             "date_scraped": datetime.now(timezone.utc).isoformat(),
             "available_from": prop.get("letAvailableDate", ""),
             "has_home_office": 1 if has_office else 0,
+            "agent_name": agent_name or None,
+            "is_btr": is_btr,
         }
     except Exception as e:
         print(f"[scraper] parse error on property {prop.get('id')}: {e}")

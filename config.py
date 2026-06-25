@@ -9,25 +9,25 @@ DESTINATIONS = {
     "your_work": {
         "name": "Your work",
         "short": "MATS",
-        "address": "71 Central Street, EC1V",
-        "lat": 51.5254,
-        "lon": -0.0907,
+        "address": "71 Central Street, EC1V 8AB",
+        "lat": 51.52532,
+        "lon": -0.09643,
         "depart_time": "0900",
     },
     "lisa": {
         "name": "LISA",
         "short": "LISA",
         "address": "25 Holywell Row, EC2A 4XE",
-        "lat": 51.5210,
-        "lon": -0.0796,
+        "lat": 51.52299,
+        "lon": -0.08217,
         "depart_time": "0700",
     },
     "kings_cross": {
         "name": "King's Cross",
         "short": "KX",
         "address": "King's Cross Station, N1C 4TB",
-        "lat": 51.5308,
-        "lon": -0.1238,
+        "lat": 51.53106,
+        "lon": -0.12465,
         "depart_time": "1900",
     },
 }
@@ -74,6 +74,25 @@ HOME_OFFICE_PATTERNS = [
     r"(?<!post[\s-])\boffice\b",    # "office" but not "Post Office"
     r"third\s+reception",           # an extra reception room in a 2-bed
 ]
+
+# Letting-agent vetting — a coworker who knows London agents graded them.
+# Matched (case-insensitive regex) against the agent's brand trading name. First
+# match wins. Tiers: "ok" (green), "mid" (amber), "avoid" (red). Shown only on
+# cards/popups for listings that pass the filters — never re-evaluated against
+# already-rejected ones.
+AGENT_RATINGS = [
+    (r"knight\s*frank",   "ok",    "Least bad of the big agents"),
+    (r"chestertons",      "ok",    "Branch-dependent, usually OK"),
+    (r"black\s*katz",     "avoid", "Avoid — known bad"),
+    (r"foxtons",          "mid",   "Mid"),
+    (r"dexters",          "mid",   "Mid"),
+    (r"savills",          "mid",   "Annoying — poor service for established tenants"),
+    (r"winkworth",        "mid",   "Franchise-dependent"),
+]
+# Fallback applied when a listing is a new-build build-to-rent and no specific
+# agent rating matched. Built-to-rents are usually not worthwhile (transient
+# student-heavy tenancies, inconsistent standards, even pricey KX ones had issues).
+BTR_RATING = ("avoid", "New-build build-to-rent — usually not worthwhile")
 
 # Names shown in the "who are you?" picker — update these to match your group
 FLATMATES = ["Nik", "Jennifer", "Luis", "Demelza"]

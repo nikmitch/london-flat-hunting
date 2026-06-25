@@ -161,6 +161,23 @@
       white-space: nowrap;
     }
 
+    /* ── Letting-agent vetting badge ── */
+    .agent-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.74rem; font-weight: 600;
+      padding: 3px 9px; border-radius: 10px;
+      cursor: help;
+    }
+    .agent-badge::before {
+      content: ""; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .agent-ok    { background: #ebfbee; color: #2b8a3e; }
+    .agent-ok::before    { background: #2b8a3e; }
+    .agent-mid   { background: #fff9db; color: #b07d00; }
+    .agent-mid::before   { background: #e8a900; }
+    .agent-avoid { background: #fff0f0; color: #c92a2a; }
+    .agent-avoid::before { background: #c92a2a; }
+
     /* ── Grid ── */
     main {
       max-width: 1400px;
@@ -537,6 +554,14 @@
         {% if listing.postcode %}<span class="card-beds">{{ listing.postcode }}</span>{% endif %}
         {% if listing.has_home_office %}<span class="office-badge">🖥 Home office</span>{% endif %}
       </div>
+      {% if listing.agent_assessment %}
+      <div class="agent-row">
+        <span class="agent-badge agent-{{ listing.agent_assessment.tier }}"
+              title="{{ listing.agent_assessment.note }}">
+          {{ listing.agent_assessment.agent }} · {{ listing.agent_assessment.note }}
+        </span>
+      </div>
+      {% endif %}
       <div class="days-on-market" style="display:flex;gap:12px;flex-wrap:wrap;">
         <span>
           {% if listing.days_on_market == 0 %}Listed today
